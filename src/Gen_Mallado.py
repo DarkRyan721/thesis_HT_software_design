@@ -1,11 +1,10 @@
 import gmsh
-import sys
-import meshio
 import numpy as np
+import meshio
+import sys
 import pyvista as pv
 
-# Función para leer puntos desde un archivo STEP
-def extract_step_points(step_file):
+def extract_cylinder_radii(step_file):
     gmsh.initialize()
     gmsh.model.add("ImportedModel")
 
@@ -13,71 +12,63 @@ def extract_step_points(step_file):
     gmsh.model.occ.importShapes(step_file)
     gmsh.model.occ.synchronize()
 
-    # Obtener todas las entidades de puntos (dim=0)
-    points = gmsh.model.getEntities(0)  
+    # Obtener todas las superficies (dim=2)
+    surfaces = gmsh.model.getEntities(2)
+    xmaxes = []
+    ymaxes = []
 
-    point_coords = []
-    for point in points:
-        x, y, z = gmsh.model.getValue(point[0], point[1], [])  # Obtener coordenadas
-        point_coords.append((x, y, z))
+    for surface in surfaces:
+        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(surface[0], surface[1])
+        xmaxes.append(xmax)
+        ymaxes.append(ymax)
 
-    gmsh.finalize()
-    return point_coords
+    gmsh.finalize
+    return max_values(xmaxes,ymaxes)
 
-# Función para graficar los puntos con etiquetas
-def plot_step_points_with_labels(points):
-    """
-    Función para graficar puntos extraídos de un archivo STEP usando PyVista, con etiquetas para cada punto.
+def max_values(xmaxes,ymaxes):
+    # Eliminar duplicados y ordenar en orden descendente
+    unique_xmaxes = sorted(set(xmaxes), reverse=True)
+    unique_ymaxes = sorted(set(ymaxes), reverse=True)
+
+    # Definir valores por defecto en caso de que no se encuentren suficientes datos
+    rad_int_cyl = None
+    rad_ext_smallcyl = None
+    positive_ymaxes = np.abs(unique_ymaxes)
+
+    lenght = max(positive_ymaxes)
+
+    # Obtener el segundo valor más grande si existen al menos dos valores únicos
+    if len(unique_xmaxes) >= 2:
+        rad_int_cyl = unique_xmaxes[1]
+
+    # Obtener el menor valor mayor a 10
+    for value in sorted(unique_xmaxes):
+        if value > 10:
+            rad_ext_smallcyl = value
+            break
     
-    Parámetros:
-    - points: Lista de tuplas (x, y, z) con las coordenadas de los puntos.
-    """
-    if not points:
-        print("No hay puntos para graficar.")
-        return
+    
+        
 
-    # Convertir la lista de puntos en un array de NumPy
-    points_array = np.array(points)
+    return rad_int_cyl, rad_ext_smallcyl, lenght
 
-    # Crear la nube de puntos en PyVista
-    point_cloud = pv.PolyData(points_array)
+step_filename = "SPT-100(2).step"
+# Obtener los valores procesados
+rad_int_cyl, rad_ext_smallcyl, lenght = extract_cylinder_radii(step_filename)
 
-    # Configurar la visualización
-    plotter = pv.Plotter()
-    plotter.add_points(point_cloud, color="red", point_size=5)
-
-    # Agregar etiquetas con nombres a cada punto
-    for i, (x, y, z) in enumerate(points):
-        plotter.add_point_labels(np.array([[x, y, z]]), [f"Punto {i+1}"], font_size=10, point_color="blue", text_color="black", point_size=10)
-
-    plotter.show()
-
-# Nombre del archivo STEP (Cambia esto por el archivo correcto)
-step_filename = "SPT-100.step"
-
-# Obtener coordenadas de los puntos
-points = extract_step_points(step_filename)
-
-# Mostrar coordenadas de los puntos
-print("Coordenadas de los puntos en el archivo STEP:")
-for i, (x, y, z) in enumerate(points):
-    print(f"Punto {i+1}: ({x:.3f}, {y:.3f}, {z:.3f})")
-
-# Graficar los puntos con etiquetas
-plot_step_points_with_labels(points)
 
 
 gmsh.initialize()
 gmsh.model.add("SPT100_Simulation_Zone")
 
+R_big = rad_int_cyl#0.3
+R_small = rad_ext_smallcyl #0.1
 # Crear el cubo
-L = 1.0  # Longitud del cubo
+L = 3*R_big  # Longitud del cubo
 cube = gmsh.model.occ.addBox(0, 0, 0, L, L, L)
 
 # Crear el cilindro hueco
-R_big = 0.3
-R_small = 0.1
-H = 1.0
+H = lenght
 pos_x, pos_y, pos_z = L / 2, L / 2, L
 
 cylinder_outer = gmsh.model.occ.addCylinder(pos_x, pos_y, pos_z, 0, 0, H, R_big)
@@ -123,6 +114,8 @@ for surface in surfaces:
     else:
         cylinder_wall_surfaces.append(surface[1])
 
+
+
     #print("Informacion del centro de masa", com)
 outlet_plume_surfaces.append(19)
 outlet_thruster_surfaces = [s for s in outlet_thruster_surfaces if s == 13]
@@ -151,27 +144,3 @@ if '-nopopup' not in sys.argv:
 
 gmsh.finalize()
 
-
-
-# Leer el archivo .msh
-msh = meshio.read("SimulationMesh.msh")
-
-# Revisar los tipos de celdas presentes
-print("Tipos de celdas en el archivo:", msh.cells_dict.keys())
-
-# Verificar si hay elementos tetraédricos
-if "tetra" not in msh.cells_dict:
-    raise ValueError("No se encontraron elementos tetraédricos en el archivo .msh")
-
-# Crear la malla en formato adecuado para FEniCSx
-mesh = meshio.Mesh(
-    points=msh.points.astype("float64"),  # FEniCSx espera float64
-    cells=[("tetra", msh.cells_dict["tetra"])]
-)
-
-# Guardar en formato XDMF (con HDF5)
-meshio.write("SimulationMesh.xdmf", mesh)
-
-
-with open("SimulationMesh.xdmf", "r") as file:
-    print("Contenido del XDMF:\n", file.read())
