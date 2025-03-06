@@ -89,6 +89,8 @@ E_np = np.hstack((X, E_values.T))
 
 print(E_values[:,4000:4050])
 
+np.save("Electric_Field_np.npy", E_np)
+
 #print(E_np.shape)
 #_________________________________________________________________________________________________________
 #                                       MATPLOTLIB NODOS CAMPO ELECTRICO
