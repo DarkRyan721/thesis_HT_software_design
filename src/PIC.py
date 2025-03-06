@@ -1,11 +1,10 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from mpl_toolkits.mplot3d import Axes3D
-from scipy.interpolate import NearestNDInterpolator
+from scipy.spatial import cKDTree
+import cupy as cp
+from tqdm import tqdm
 
 #_____________________________________________________________________________________________________
-#            Funcion para distribuir particulas por el espacio de manera cilindrica
+#               1] Funcion para distribuir particulas por el espacio de manera cilindrica
 
 Z_shift = 120 # Variable que desplaza el cilindro de particulas en Z
 XY_shift = 60 # Variable que desplaza el centro del cilindro en XY a [60,60]
@@ -38,25 +37,30 @@ def initialize_particles(N, Rin, Rex, L):
     return s
 
 #_____________________________________________________________________________________________________
-#           Tratamiento del campo electrico calculado con LaPlace
+#               2] Tratamiento del campo electrico calculado con LaPlace
 
 E_Field_File = np.load("Electric_Field_np.npy") # Archivo numpy con E calculado
 
 """
     Interpolator_Electric_Field:
 
-    Mediante E_Field_File que es el campo electrico generado con LaPlace, se crean 3 funciones de
-    interpolacion las cuales son Ex_interp, Ey_interp, Ez_interp. Estas funciones son creadas con
-    NearestNDInterpolator, un metodo desarrollado precisamente para encontrar el valor numerico de
-    un campo en un punto arbitrario de su espacio. Con esto nos sera sencillo asociar un valor de
-    campo electrico a una particula en el punto (X,Y,Z) cualquiera.
+    Mediante E_Field_File que es el campo electrico generado con LaPlace, se crean 4 variables de
+    interpolacion las cuales son Ex_values, Ey_values, Ez_values y tree. Estas ultima es creada 
+    con cKDTree, un metodo desarrollado precisamente para encontrar el valor numerico de un campo 
+    en un punto arbitrario de su espacio. Con esto nos sera sencillo asociar un valor de campo 
+    electrico a una particula en el punto (X,Y,Z) cualquiera.
+
+    Interpolate_E:
+
+    Recibe la posicion [s] de una particula y en base a las 4 variables de interpolacion retorna
+    un valor E correspondiente al campo electrico asociado a esa particula
 
     E_Field_File -> Campo electrico resultado de Laplace_E_Solution.py
 """
 
 def Interpolator_Electric_Field(E_Field_File):
 
-    # Extrayendo las coordenadas espaciales(X,Y,Z) del campo
+    # Extrayendo las coordenadas espaciales(X,Y,Z) del campo electrico
     points = E_Field_File[:, :3]
 
     # Extrayendo los valores del campo electrico en cada eje coordenado
@@ -65,16 +69,27 @@ def Interpolator_Electric_Field(E_Field_File):
     Ez_values = E_Field_File[:, 5]  # Campo Ez
 
     # Creando la funcion de interpolacion para cada campo electrico(Ex, Ey, Ez)
-    Ex_interp = NearestNDInterpolator(points, Ex_values)
-    Ey_interp = NearestNDInterpolator(points, Ey_values)
-    Ez_interp = NearestNDInterpolator(points, Ez_values)
+    tree = cKDTree(points)
 
-    return Ex_interp, Ey_interp, Ez_interp
+    return tree, Ex_values, Ey_values, Ez_values
+
+def Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s):
+
+    # Busca el indice(idx) del campo electrico correspondiente al punto [s]
+    _, idx = tree.query(s)
+
+    # Obtener los valores de Ex, Ey, Ez segun el indice [idx]
+    Ex = Ex_values[idx]
+    Ey = Ey_values[idx]
+    Ez = Ez_values[idx]
+
+    # retorna el campo electrico en un solo vector/matriz transpuesto
+    return np.vstack((Ex, Ey, Ez)).T 
 
 #_____________________________________________________________________________________________________
-#                           Parámetros de simulación
+#               3] Parámetros de simulación
 
-N = 1000  # Número de partículas
+N = 100000  # Número de partículas
 dt = 0.01  # Delta de tiempo
 q_m = 1.0  # Valor Carga/Masa
 
@@ -82,16 +97,15 @@ Rin = 20 # Radio interno del cilindro hueco
 Rex = 40 # Primer radio externo del cilindro hueco
 L = 60 # Longitud del cilindro
 
-E_interpolators = Interpolator_Electric_Field(E_Field_File)  # Campo eléctrico
+tree, Ex_values, Ey_values, Ez_values = Interpolator_Electric_Field(E_Field_File)  # Campo eléctrico y su interpolador
 B0 = 5.0  # Magnitud del campo magnético radial
 
 #_____________________________________________________________________________________________________
-#                           Inicialización de partículas (posición y velocidad)
+#               4] Inicialización de partículas (posición y velocidad)
 
 s = initialize_particles(N, Rin=Rin, Rex=Rex, L=L)  # Posiciones iniciales
 
 # Definicion de velocidades con limites en cada eje
-
 Vx_min, Vx_max = -1.0, 1.0
 Vy_min, Vy_max = -0.5, 0.5
 Vz_min, Vz_max = -100.0, 0.0
@@ -102,71 +116,70 @@ v_z = Vz_min + (Vz_max - Vz_min) * np.random.rand(N).astype(np.float32)
 
 v = np.vstack((v_x, v_y, v_z)).T  # Juntamos los valores en una matriz Nx3
 
-# v = np.zeros((N, 3), dtype=np.float32)  # Para velocidad inicial cero
+#_____________________________________________________________________________________________________
+#               5] Parametros de simulacion
+
+timesteps = 500  # Número de frames de la animación
+
+# Inicializar almacenamiento de datos
+all_positions = np.zeros((timesteps, N, 3), dtype=np.float32)
 
 #_____________________________________________________________________________________________________
-#                           Función para mover partículas
+#               6] Función para mover partículas
 
-def move_particles(s, v, dt, q_m, E_interpolators, B0):
+# Se obtiene el campo electrico(por ahora constante)
+E = Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s)
+
+# Se pasan las variables (s,v,E) a la GPU
+s_gpu = cp.array(s)
+v_gpu = cp.array(v)
+E_gpu = cp.array(E)
+
+def move_particles(s, v, dt, q_m, E, B0):
 
     # Definira el rango en el campo magnetico tiene valor [120,130] en Z
     mask_B = (s[:, 2] >= 120) & (s[:,2] <= 130)
 
     # Calcular el radio en el plano XY
-    r = np.sqrt((s[:, 0] - XY_shift)**2 + (s[:, 1] - XY_shift)**2) + 1e-6
+    r = cp.sqrt((s[:, 0] - XY_shift)**2 + (s[:, 1] - XY_shift)**2) + 1e-6
 
     # Inicializando vectores de campo magnetico
-    Bx = np.zeros(N, dtype=np.float32)
-    By = np.zeros(N, dtype=np.float32)
-    Bz = np.zeros(N, dtype=np.float32)  # No hay componente en Z
+    Bx, By, Bz = cp.zeros_like(s[:, 0]), cp.zeros_like(s[:, 0]), cp.zeros_like(s[:, 0])
     
     # Campo magnético radial hacia el centro del cilindro
     Bx[mask_B] = -B0 * ((s[mask_B, 0] - XY_shift) / r[mask_B])
     By[mask_B] = -B0 * ((s[mask_B, 1] - XY_shift) / r[mask_B])
 
-    # Producto cruz v × B (Fuerza de Lorentz)
-    Fx = v[:, 1] * Bz - v[:, 2] * By
-    Fy = v[:, 2] * Bx - v[:, 0] * Bz
-    Fz = v[:, 0] * By - v[:, 1] * Bx
+    # Crear la matriz del campo magnético para todas las partículas
+    B = cp.column_stack((Bx, By, Bz))  
 
-    # Recuperando las funciones de interpolacion de E
-    Ex_interp, Ey_interp, Ez_interp = E_interpolators
+    # Cálculo optimizado de la Fuerza de Lorentz
+    F_Lorentz = cp.cross(v, B)
 
-    # Obteniendo el campo electrico correspondiente a cada una de las particulas en Ex, Ey y Ez
-    Ex = Ex_interp(s[:, 0], s[:, 1], s[:, 2])
-    Ey = Ey_interp(s[:, 0], s[:, 1], s[:, 2])
-    Ez = Ez_interp(s[:, 0], s[:, 1], s[:, 2])
+    # Actualizacion de velocidad
+    v += q_m * (E + F_Lorentz) * dt
 
-    # Unificando los campos electricos en una sola matriz E de Nx3
-    E = np.vstack((Ex, Ey, Ez)).T
-
-    # Actualizacion de la velocidad
-    v[:, 0] += q_m * (E[:, 0] + Fx) * dt  # Ex en cada partícula
-    v[:, 1] += q_m * (E[:, 1] + Fy) * dt  # Ey en cada partícula
-    v[:, 2] += q_m * (E[:, 2] + Fz) * dt  # Ez en cada partícula
-
-    # Actualizar posición
-    s[:, 0] += v[:, 0] * dt
-    s[:, 1] += v[:, 1] * dt
-    s[:, 2] += v[:, 2] * dt
+    # Actualizacion de posicion
+    s += v * dt
 
     # Mascara que define los limites de simulacion [0,0,0] ^ [120,120,180]
     mask_out = (s[:, 0] < 0) | (s[:, 0] > 120) | \
                (s[:, 1] < 0) | (s[:, 1] > 120) | \
                (s[:, 2] < 0) | (s[:, 2] > 180)
     
-    num_reinsert = np.sum(mask_out)  # Contar cuántas partículas se reingresan
+    # Cantidad de particulas que deben re ingresar al sistema
+    num_reinsert = int(cp.sum(mask_out).item()) 
     
     if num_reinsert > 0:
 
         # Generamos nuevas posiciones en el cilindro en (X,Y)
-        r_new = np.sqrt(np.random.uniform(Rin**2, Rex**2, num_reinsert))
-        theta_new = np.random.uniform(0, 2*np.pi, num_reinsert)
+        r_new = cp.sqrt(cp.random.uniform(Rin**2, Rex**2, num_reinsert))
+        theta_new = cp.random.uniform(0, 2*cp.pi, num_reinsert)
 
         # Pasamos a coordenadas cartesianas
-        x_new = r_new * np.cos(theta_new) + XY_shift
-        y_new = r_new * np.sin(theta_new) + XY_shift
-        z_new = np.full(num_reinsert, 180)  # Z siempre en 180
+        x_new = r_new * cp.cos(theta_new) + XY_shift
+        y_new = r_new * cp.sin(theta_new) + XY_shift
+        z_new = cp.full(num_reinsert, 180-1, dtype=cp.float32)  # Z siempre en 180
 
         # Asignamos las nuevas posiciones
         s[mask_out, 0] = x_new
@@ -174,48 +187,35 @@ def move_particles(s, v, dt, q_m, E_interpolators, B0):
         s[mask_out, 2] = z_new
 
         # Asignamos nuevas velocidades aleatorias
-        v_x_new = Vx_min + (Vx_max - Vx_min) * np.random.rand(num_reinsert).astype(np.float32)
-        v_y_new = Vy_min + (Vy_max - Vy_min) * np.random.rand(num_reinsert).astype(np.float32)
-        v_z_new = Vz_min + (Vz_max - Vz_min) * np.random.rand(num_reinsert).astype(np.float32)
+        v_x_new = Vx_min + (Vx_max - Vx_min) * cp.random.rand(num_reinsert).astype(cp.float32)
+        v_y_new = Vy_min + (Vy_max - Vy_min) * cp.random.rand(num_reinsert).astype(cp.float32)
+        v_z_new = Vz_min + (Vz_max - Vz_min) * cp.random.rand(num_reinsert).astype(cp.float32)
 
         # Juntamos las velocidades en una matriz (num_reinsert, 3)
-        v_new = np.vstack((v_x_new, v_y_new, v_z_new)).T
+        v_new = cp.column_stack((v_x_new, v_y_new, v_z_new))
 
         # Asignamos las nuevas velocidades a las partículas reinsertadas
         v[mask_out] = v_new
-
-#_____________________________________________________________________________________________________
-#                           Configurar Matplotlib 3D
-
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-
-# Crear los puntos iniciales
-sc = ax.scatter(s[:, 0], s[:, 1], s[:, 2], s=1, color="blue")
-
-# Ajustar límites del gráfico
-ax.set_xlim(0, 120)
-ax.set_ylim(0, 120)
-ax.set_zlim(0, 180)
-ax.set_title("Evolución de Partículas (CPU)")
-
-#_____________________________________________________________________________________________________
-#                           Función de actualización para animación
-
-def update(frame):
-    global s, v
     
-    # Ejecutar la simulación en CPU
-    move_particles(s, v, dt, q_m, E_interpolators, B0)
+    # Retornamos la posicion espacial de las particulas para ser almacenadas
+    return s
 
-    # Actualizar la posición en la animación
-    sc._offsets3d = (s[:, 0], s[:, 1], s[:, 2])
-    sc.set_offsets(s[:, :2])  # Actualiza X e Y
-    sc.set_3d_properties(s[:, 2], zdir='z')  # Actualiza Z
-    return sc,
+#_____________________________________________________________________________________________________
+#               7] Simulacion y proceso de renderizado
 
-# Crear animación (blit=False para evitar errores en 3D)
-ani = animation.FuncAnimation(fig, update, frames=100, interval=50, blit=False)
+# Ejecutar la simulación y guardar datos con barra de progreso
+print("Ejecutando simulación y guardando datos...")
+for t in tqdm(range(timesteps), desc="Progreso"):
 
+    # Funcion de movimiento
+    s = move_particles(s_gpu, v_gpu, dt, q_m, E_gpu, B0)
 
-plt.show()
+    # Conversion de [s] a datos de CPU(numpy) nuevamente
+    s_np = cp.asnumpy(s)
+
+    # Guardar la posición de las partículas en este frame
+    all_positions[t] = s_np  
+
+# Guardar el archivo con todas las posiciones simuladas
+np.save("particle_simulation.npy", all_positions)
+print("✅ Simulación guardada exitosamente en 'particle_simulation.npy'")
