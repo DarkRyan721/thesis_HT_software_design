@@ -84,14 +84,14 @@ X = domain.geometry.x
 # Extrae los valores de campo electrico en Ex, Ey y Ez para organizarlos en un vector de 3xn
 E_values = E_field.x.array.reshape(-1, domain.geometry.dim).T
 
-# Matriz con coordenadas y campo eléctrico [X,Y,Z,Ex,Ey,Ez]
+
 E_np = np.hstack((X, E_values.T))
 
 print(E_values[:,4000:4050])
 
 np.save("Electric_Field_np.npy", E_np)
 
-#print(E_np.shape)
+print(E_np.shape)
 #_________________________________________________________________________________________________________
 #                                       MATPLOTLIB NODOS CAMPO ELECTRICO
 
