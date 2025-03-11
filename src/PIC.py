@@ -89,8 +89,8 @@ def Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s):
 #_____________________________________________________________________________________________________
 #               3] Parámetros de simulación
 
-N = 100000  # Número de partículas
-dt = 0.01  # Delta de tiempo
+N = 1000000  # Número de partículas
+dt = 0.03  # Delta de tiempo
 q_m = 1.0  # Valor Carga/Masa
 
 Rin = 20 # Radio interno del cilindro hueco
@@ -108,7 +108,7 @@ s = initialize_particles(N, Rin=Rin, Rex=Rex, L=L)  # Posiciones iniciales
 # Definicion de velocidades con limites en cada eje
 Vx_min, Vx_max = -1.0, 1.0
 Vy_min, Vy_max = -0.5, 0.5
-Vz_min, Vz_max = -100.0, 0.0
+Vz_min, Vz_max = -100.0, -10.0
 
 v_x = Vx_min + (Vx_max - Vx_min) * np.random.rand(N).astype(np.float32)
 v_y = Vy_min + (Vy_max - Vy_min) * np.random.rand(N).astype(np.float32)
