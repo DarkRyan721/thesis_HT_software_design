@@ -6,9 +6,6 @@ from tqdm import tqdm
 #_____________________________________________________________________________________________________
 #               1] Funcion para distribuir particulas por el espacio de manera cilindrica
 
-Z_shift = 120 # Variable que desplaza el cilindro de particulas en Z
-XY_shift = 60 # Variable que desplaza el centro del cilindro en XY a [60,60]
-
 """
     initialize_particles:
 
@@ -25,11 +22,11 @@ def initialize_particles(N, Rin, Rex, L):
     # Generacion uniforme de valores cilindricos(r, theta, z)
     r = np.sqrt(np.random.uniform(Rin**2, Rex**2, N))
     theta = np.random.uniform(0, 2*np.pi, N)
-    z = np.random.uniform(0+Z_shift, L+Z_shift, N)
+    z = np.random.uniform(0, L, N)
 
     # Conversion a coordenadas cartesianas
-    x = r * np.cos(theta) + XY_shift
-    y = r * np.sin(theta) + XY_shift
+    x = r * np.cos(theta)
+    y = r * np.sin(theta)
 
     # Arreglo con coordenadas XYZ en formato Nx3
     s = np.vstack((x,y,z)).T.astype(np.float32)
@@ -89,7 +86,7 @@ def Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s):
 #_____________________________________________________________________________________________________
 #               3] Parámetros de simulación
 
-N = 1000000  # Número de partículas
+N = 100000  # Número de partículas
 dt = 0.03  # Delta de tiempo
 q_m = 1.0  # Valor Carga/Masa
 
@@ -108,7 +105,7 @@ s = initialize_particles(N, Rin=Rin, Rex=Rex, L=L)  # Posiciones iniciales
 # Definicion de velocidades con limites en cada eje
 Vx_min, Vx_max = -1.0, 1.0
 Vy_min, Vy_max = -0.5, 0.5
-Vz_min, Vz_max = -100.0, -10.0
+Vz_min, Vz_max = 0.0, 100.0
 
 v_x = Vx_min + (Vx_max - Vx_min) * np.random.rand(N).astype(np.float32)
 v_y = Vy_min + (Vy_max - Vy_min) * np.random.rand(N).astype(np.float32)
@@ -137,18 +134,18 @@ E_gpu = cp.array(E)
 
 def move_particles(s, v, dt, q_m, E, B0):
 
-    # Definira el rango en el campo magnetico tiene valor [120,130] en Z
-    mask_B = (s[:, 2] >= 120) & (s[:,2] <= 130)
+    # Definira el rango en el campo magnetico tiene valor [50,60] en Z
+    mask_B = (s[:, 2] >= 50) & (s[:,2] <= 60)
 
     # Calcular el radio en el plano XY
-    r = cp.sqrt((s[:, 0] - XY_shift)**2 + (s[:, 1] - XY_shift)**2) + 1e-6
+    r = cp.sqrt((s[:, 0])**2 + (s[:, 1])**2) + 1e-6
 
     # Inicializando vectores de campo magnetico
     Bx, By, Bz = cp.zeros_like(s[:, 0]), cp.zeros_like(s[:, 0]), cp.zeros_like(s[:, 0])
     
     # Campo magnético radial hacia el centro del cilindro
-    Bx[mask_B] = -B0 * ((s[mask_B, 0] - XY_shift) / r[mask_B])
-    By[mask_B] = -B0 * ((s[mask_B, 1] - XY_shift) / r[mask_B])
+    Bx[mask_B] = -B0 * ((s[mask_B, 0]) / r[mask_B])
+    By[mask_B] = -B0 * ((s[mask_B, 1]) / r[mask_B])
 
     # Crear la matriz del campo magnético para todas las partículas
     B = cp.column_stack((Bx, By, Bz))  
@@ -163,8 +160,8 @@ def move_particles(s, v, dt, q_m, E, B0):
     s += v * dt
 
     # Mascara que define los limites de simulacion [0,0,0] ^ [120,120,180]
-    mask_out = (s[:, 0] < 0) | (s[:, 0] > 120) | \
-               (s[:, 1] < 0) | (s[:, 1] > 120) | \
+    mask_out = (s[:, 0] < -60) | (s[:, 0] > 60) | \
+               (s[:, 1] < -60) | (s[:, 1] > 60) | \
                (s[:, 2] < 0) | (s[:, 2] > 180)
     
     # Cantidad de particulas que deben re ingresar al sistema
@@ -177,9 +174,9 @@ def move_particles(s, v, dt, q_m, E, B0):
         theta_new = cp.random.uniform(0, 2*cp.pi, num_reinsert)
 
         # Pasamos a coordenadas cartesianas
-        x_new = r_new * cp.cos(theta_new) + XY_shift
-        y_new = r_new * cp.sin(theta_new) + XY_shift
-        z_new = cp.full(num_reinsert, 180-1, dtype=cp.float32)  # Z siempre en 180
+        x_new = r_new * cp.cos(theta_new)
+        y_new = r_new * cp.sin(theta_new)
+        z_new = cp.full(num_reinsert, 1, dtype=cp.float32)  # Z siempre en 180
 
         # Asignamos las nuevas posiciones
         s[mask_out, 0] = x_new

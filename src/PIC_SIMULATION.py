@@ -22,9 +22,9 @@ def on_close():
 #           3] Funcion para la creacion de solidos/geometrias del motor
 
 # Parametros de geometrias
-centro_xy = (60, 60)
-z_inicio = 120
-z_final = 180
+centro_xy = (0, 0)
+z_inicio = 0
+z_final = 60
 altura = 60
 Rext = 42
 Rint = 18
@@ -40,14 +40,14 @@ def Geometries_creation():
     cilindro_int = pv.Cylinder(center=centro, direction=direccion, radius=Rint, height=altura, resolution=50).triangulate()
     cilindro_hueco = cilindro_ext.boolean_difference(cilindro_int)
 
-    cilindro = cilindro_hueco.clip(normal="z", origin=(centro_xy[0], centro[1], z_inicio), invert=False)
+    cilindro = cilindro_hueco.clip(normal="z", origin=(centro_xy[0], centro[1], z_final-1e-3), invert=True)
 
     # Plano solido:
-    plano_solid = pv.Cube(center=(centro_xy[0], centro_xy[1], z_final), x_length=ancho_plano, y_length=ancho_plano, z_length=espesor_plano).triangulate()
+    plano_solid = pv.Cube(center=(centro_xy[0], centro_xy[1], z_inicio), x_length=ancho_plano, y_length=ancho_plano, z_length=espesor_plano).triangulate()
 
     # Plano hueco:
-    plano_hueco_aux = pv.Cube(center=(centro_xy[0], centro_xy[1], z_inicio), x_length=ancho_plano, y_length=ancho_plano, z_length=espesor_plano).triangulate()
-    cilindro_corte = pv.Cylinder(center=(centro_xy[0], centro_xy[1], z_inicio), direction=direccion,radius=Rext,height=10,resolution=100).triangulate()
+    plano_hueco_aux = pv.Cube(center=(centro_xy[0], centro_xy[1], z_final), x_length=ancho_plano, y_length=ancho_plano, z_length=espesor_plano).triangulate()
+    cilindro_corte = pv.Cylinder(center=(centro_xy[0], centro_xy[1], z_final), direction=direccion,radius=Rext,height=10,resolution=100).triangulate()
 
     plano_hueco = plano_hueco_aux.boolean_difference(cilindro_corte)
 
@@ -76,16 +76,16 @@ plotter = Geometries_creation()
 #           4] Configuracion de la camara
 
 # Calcular centro
-center = np.array([(20 + 120)/2, (20 + 120)/2, (120 + 180)/2])
+center = np.array([(20 + 0)/2, (20 + 0)/2, (120 + 60)/2])
 
 # Configurar cámara
-plotter.camera_position = [(70, 70, 350), center, (0, 1, 0)]
-plotter.camera.azimuth = 225
-plotter.camera.elevation = 30
-plotter.camera.view_angle = 105
+plotter.camera_position = [(70, 70, 220), center, (0, 1, 0)]
+plotter.camera.azimuth = 265
+plotter.camera.elevation = 15
+plotter.camera.view_angle = 115
 
 # Iluminacion adicional
-light = pv.Light(position=(300, 300, 500), focal_point=(60, 60, 150), intensity=1.5)
+light = pv.Light(position=(300, 300, -500), focal_point=(0, 0, 150), intensity=1.5)
 plotter.add_light(light)
 
 # Crear arreglo de particulas inicial
@@ -97,6 +97,15 @@ plotter.add_text("\nHall Effect Thruster", position="upper_edge", color='white')
 
 # Callback de cierre de ventana
 plotter.iren.add_observer("ExitEvent", lambda *_: on_close())
+
+# x_line = pv.Line(pointa=(-100, 0, 0), pointb=(100, 0, 0))
+# y_line = pv.Line(pointa=(0, -100, 0), pointb=(0, 100, 0))
+# z_line = pv.Line(pointa=(0, 0, -100), pointb=(0, 0, 100))
+
+# # Agregamos las mallas de los ejes
+# plotter.add_mesh(x_line, color='red', line_width=3)
+# plotter.add_mesh(y_line, color='green', line_width=3)
+# plotter.add_mesh(z_line, color='blue', line_width=3)
 
 # Mostrar ventana interactiva
 plotter.show(auto_close=False, interactive_update=True)

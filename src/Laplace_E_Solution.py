@@ -166,6 +166,8 @@ E_values = E_field.x.array.reshape(-1, domain.geometry.dim).T
 # [x, y, z, Ex, Ey, Ez]
 E_np = np.hstack((X, E_values.T))
 
+np.save("Electric_Field_np.npy", E_np)
+
 # -----------------------------------------------------------------------------
 # Visualización 3D con matplotlib
 # -----------------------------------------------------------------------------
