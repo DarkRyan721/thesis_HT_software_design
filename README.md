@@ -1,1 +1,1 @@
-# thesis_HT_software_desing
+# Hall Effect Thruster Software
