@@ -173,7 +173,7 @@ def max_values(xmaxes, ymaxes, xminimos):
 # -----------------------------------------------------------------------------
 # Ajustar este nombre si el archivo STEP se encuentra en otra ruta o tiene 
 # otro nombre.
-step_filename = "SPT-100(2).step"
+step_filename = "data_files/SPT-100(2).step"
 
 # Se extraen radios y la longitud de la geometría a partir del STEP
 rad_int_cyl, rad_ext_smallcyl, lenght = extract_cylinder_radii(step_filename)
@@ -187,6 +187,13 @@ R_big = rad_int_cyl        # Radio principal del cilindro (externo)
 R_small = rad_ext_smallcyl # Radio interno de otro cilindro
 L = 3 * R_big              # Escala para el cubo
 H = lenght                 # Altura (se toma el bounding box en Y como referencia)
+
+#Crear archivo txt de los parametro geometricos para enviarlos a otros archivos py
+with open("data_files/geometry_parameters.txt","w") as f:
+    f.write(f"radio_externo: {rad_int_cyl}\n")
+    f.write(f"radio_interno: {rad_ext_smallcyl}\n")
+    f.write(f"profundidad: {H}\n")
+    f.write(f"lado_cubo: {L}\n")
 
 # Crea un cubo con centro en (-L/2, -L/2) y altura H
 #   - Origen en (-L/2, -L/2, H)
@@ -277,10 +284,10 @@ gmsh.option.setNumber("Mesh.MeshSizeMax", R_big / 5)
 gmsh.model.mesh.generate(3)
 
 # Exporta la malla en formato .msh (de Gmsh)
-gmsh.write("SimulationZone.msh")
+gmsh.write("data_files/SimulationZone.msh")
 
 # Crea y exporta la malla en formato XDMF (compatible con FEniCSx)
-create_mesh(MPI.COMM_WORLD, gmsh.model, "SPT100_Simulation_Zone", "SimulationZone.xdmf", "w")
+create_mesh(MPI.COMM_WORLD, gmsh.model, "SPT100_Simulation_Zone", "data_files/SimulationZone.xdmf", "w")
 
 # Finaliza la sesión de Gmsh
 gmsh.finalize()

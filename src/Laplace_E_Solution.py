@@ -31,6 +31,7 @@ Modo de uso:
 
 # Importaciones principales
 from mpi4py import MPI
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # Se requiere para la proyección 3D
@@ -46,6 +47,8 @@ from ufl import ds, dx, grad, inner
 # Importaciones de petsc4py
 from petsc4py import PETSc
 
+
+os.chdir("data_files")
 
 # -----------------------------------------------------------------------------
 # Lectura de la malla y de las etiquetas desde el archivo XDMF

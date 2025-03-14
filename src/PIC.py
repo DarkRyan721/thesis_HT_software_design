@@ -36,7 +36,7 @@ def initialize_particles(N, Rin, Rex, L):
 #_____________________________________________________________________________________________________
 #               2] Tratamiento del campo electrico calculado con LaPlace
 
-E_Field_File = np.load("Electric_Field_np.npy") # Archivo numpy con E calculado
+E_Field_File = np.load("data_files/Electric_Field_np.npy") # Archivo numpy con E calculado
 
 """
     Interpolator_Electric_Field:
@@ -86,13 +86,30 @@ def Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s):
 #_____________________________________________________________________________________________________
 #               3] Parámetros de simulación
 
-N = 1000000  # Número de partículas
+N = int(10e5)  # Número de partículas
 dt = 0.03  # Delta de tiempo
 q_m = 1.0  # Valor Carga/Masa
 
-Rin = 20 # Radio interno del cilindro hueco
-Rex = 40 # Primer radio externo del cilindro hueco
-L = 60 # Longitud del cilindro
+#Lectura de parametro geometricos (Archivo txt)
+def leer_datos_archivo(ruta_archivo):
+    datos = {}
+    with open(ruta_archivo, "r") as archivo:
+        for linea in archivo:
+            # Verificamos que la línea contenga ':'
+            if ":" in linea:
+                clave, valor = linea.split(":", maxsplit=1)
+                # Limpiamos espacios
+                clave = clave.strip()
+                valor = valor.strip()
+                # Almacenar en el diccionario (conversión a entero o float)
+                datos[clave] = float(valor)
+    return datos
+ruta = "data_files/geometry_parameters.txt"
+info = leer_datos_archivo(ruta)
+
+Rin = info.get("radio_interno",0) # Radio interno del cilindro hueco
+Rex = info.get("radio_externo",0) # Primer radio externo del cilindro hueco
+L = info.get("profundidad",0) # Longitud del cilindro
 
 tree, Ex_values, Ey_values, Ez_values = Interpolator_Electric_Field(E_Field_File)  # Campo eléctrico y su interpolador
 B0 = 5.0  # Magnitud del campo magnético radial
@@ -214,5 +231,5 @@ for t in tqdm(range(timesteps), desc="Progreso"):
     all_positions[t] = s_np  
 
 # Guardar el archivo con todas las posiciones simuladas
-np.save("particle_simulation.npy", all_positions)
+np.save("data_files/particle_simulation.npy", all_positions)
 print("✅ Simulación guardada exitosamente en 'particle_simulation.npy'")
