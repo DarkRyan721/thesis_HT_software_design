@@ -92,20 +92,20 @@ plotter.add_light(light)
 particles = pv.PolyData(all_positions[0])
 
 # Añadir partículas al plotter
-particle_actor = plotter.add_mesh(particles, color='#74faf2', point_size=1.5, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
+particle_actor = plotter.add_mesh(particles, color='#74faf2', point_size=0.5, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
 plotter.add_text("\nHall Effect Thruster", position="upper_edge", color='white')
 
 # Callback de cierre de ventana
 plotter.iren.add_observer("ExitEvent", lambda *_: on_close())
 
-# x_line = pv.Line(pointa=(-100, 0, 0), pointb=(100, 0, 0))
-# y_line = pv.Line(pointa=(0, -100, 0), pointb=(0, 100, 0))
-# z_line = pv.Line(pointa=(0, 0, -100), pointb=(0, 0, 100))
+x_line = pv.Line(pointa=(-100, 0, 0), pointb=(100, 0, 0))
+y_line = pv.Line(pointa=(0, -100, 0), pointb=(0, 100, 0))
+z_line = pv.Line(pointa=(0, 0, -100), pointb=(0, 0, 100))
 
-# # Agregamos las mallas de los ejes
-# plotter.add_mesh(x_line, color='red', line_width=3)
-# plotter.add_mesh(y_line, color='green', line_width=3)
-# plotter.add_mesh(z_line, color='blue', line_width=3)
+# Agregamos las mallas de los ejes
+plotter.add_mesh(x_line, color='red', line_width=3)
+plotter.add_mesh(y_line, color='green', line_width=3)
+plotter.add_mesh(z_line, color='blue', line_width=3)
 
 # Mostrar ventana interactiva
 plotter.show(auto_close=False, interactive_update=True)

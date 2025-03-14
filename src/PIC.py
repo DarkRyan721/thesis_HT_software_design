@@ -86,7 +86,7 @@ def Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s):
 #_____________________________________________________________________________________________________
 #               3] Parámetros de simulación
 
-N = 100000  # Número de partículas
+N = 1000000  # Número de partículas
 dt = 0.03  # Delta de tiempo
 q_m = 1.0  # Valor Carga/Masa
 
