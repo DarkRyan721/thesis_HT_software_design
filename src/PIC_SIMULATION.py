@@ -5,7 +5,7 @@ import time
 #_____________________________________________________________________________________________________
 #           1] Cargar posiciones de las particulas en el tiempo
 
-all_positions = np.load("particle_simulation.npy", mmap_mode="r")
+all_positions = np.load("data_files/particle_simulation.npy", mmap_mode="r")
 num_frames, num_particles, _ = all_positions.shape
 
 #_____________________________________________________________________________________________________
