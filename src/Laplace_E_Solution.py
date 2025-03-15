@@ -84,7 +84,7 @@ V = fem.functionspace(domain, ("CG", 1))
 u_bc = fem.Function(V)
 u_bc.x.array[:] = np.nan  # Inicialmente NaN para diferenciar regiones
 
-# Valor de potencial fijado en la frontera (por ejemplo, 10kV)
+# Valor de potencial fijado en la frontera
 Volt = 10000
 
 # Definición de condiciones de Dirichlet en las facetas etiquetadas

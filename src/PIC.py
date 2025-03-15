@@ -86,7 +86,7 @@ def Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s):
 #_____________________________________________________________________________________________________
 #               3] Parámetros de simulación
 
-N = int(10e5)  # Número de partículas
+N = int(10e4)  # Número de partículas
 dt = 0.03  # Delta de tiempo
 q_m = 1.0  # Valor Carga/Masa
 
@@ -232,4 +232,4 @@ for t in tqdm(range(timesteps), desc="Progreso"):
 
 # Guardar el archivo con todas las posiciones simuladas
 np.save("data_files/particle_simulation.npy", all_positions)
-print("✅ Simulación guardada exitosamente en 'particle_simulation.npy'")
+print("Simulación guardada exitosamente en 'particle_simulation.npy'")
