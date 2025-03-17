@@ -2,6 +2,8 @@ import numpy as np
 from scipy.spatial import cKDTree
 import cupy as cp
 from tqdm import tqdm
+from thermostat import aplicar_termostato
+import matplotlib.pyplot as plt
 
 #_____________________________________________________________________________________________________
 #               1] Funcion para distribuir particulas por el espacio de manera cilindrica
@@ -86,13 +88,10 @@ def Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s):
 #_____________________________________________________________________________________________________
 #               3] Parámetros de simulación
 
-<<<<<<< HEAD
 N = 1000000 # Número de partículas
-=======
-N = int(10e4)  # Número de partículas
->>>>>>> ffdd9573a020c618a33b4cd9f8024c31e3504f45
 dt = 0.03  # Delta de tiempo
 q_m = 1.0  # Valor Carga/Masa
+m = 2.18e-25
 
 #Lectura de parametro geometricos (Archivo txt)
 def leer_datos_archivo(ruta_archivo):
@@ -124,7 +123,7 @@ B0 = 5.0  # Magnitud del campo magnético radial
 s = initialize_particles(N, Rin=Rin, Rex=Rex, L=L)  # Posiciones iniciales
 
 # Definicion de velocidades con limites en cada eje
-Vx_min, Vx_max = -1.0, 1.0
+Vx_min, Vx_max = -50.0, 50.0
 Vy_min, Vy_max = -0.5, 0.5
 Vz_min, Vz_max = 0.0, 100.0
 
@@ -153,6 +152,8 @@ s_gpu = cp.array(s)
 v_gpu = cp.array(v)
 E_gpu = cp.array(E)
 
+Temp = []
+
 def move_particles(s, v, dt, q_m, E, B0):
 
     # Definira el rango en el campo magnetico tiene valor [50,60] en Z
@@ -179,6 +180,49 @@ def move_particles(s, v, dt, q_m, E, B0):
 
     # Actualizacion de posicion
     s += v * dt
+
+    # Mascara para vigilar colisiones en el cilindro
+    r_collision = cp.sqrt(s[:, 0]**2 + s[:, 1]**2)
+    mask_collision = ((r_collision >= (Rex-1)) | (r_collision <= (Rin+1))) & (s[:, 2] > 0) & (s[:, 2] <= L)
+    num_collisions = int(cp.sum(mask_collision).item()) 
+
+    if num_collisions > 0:
+        # Velocidad antes de la colisión
+        v_before = v[mask_collision]
+
+        # Vector normal unitario (radial hacia afuera)
+        normal_vector = cp.zeros_like(v_before)
+        normal_vector[:, 0] = s[mask_collision, 0] / r_collision[mask_collision]
+        normal_vector[:, 1] = s[mask_collision, 1] / r_collision[mask_collision]
+        normal_vector[:, 2] = 0  # componente axial es cero para pared lateral cilindrica
+
+        # Proyección de la velocidad en la dirección normal
+        v_normal = cp.sum(v_before * normal_vector, axis=1, keepdims=True) * normal_vector
+        v_tangencial = v_before - v_normal
+
+        # Calcular velocidades despues de colision (con α dado por tu compañero)
+        alpha = 0.9  # ejemplo, recibelo de tu compañero o definelo externamente
+        v_after_collision = v_tangencial - alpha * v_normal
+
+        # Calculo de energia cinetica antes y despues
+        E_before = 0.5 * m * cp.sum(v_before**2, axis=1)
+        E_after = 0.5 * m * cp.sum(v_after_collision**2, axis=1)
+        delta_E = E_before - E_after  # Esto es lo que envias al termostato
+
+        lambda_value, temp_aux = aplicar_termostato(delta_E, num_collisions, dt, 100, 300, 8.617e-23)
+        v_final_mag = v_before * lambda_value.reshape(-1, 1)
+        Temp.append(temp_aux)
+        # (Aquí envías delta_E a tu compañero y recibes la nueva magnitud |v_final|)
+        # Ejemplo simulado:
+        v_final_mag = cp.sqrt(cp.sum(v_after_collision**2, axis=1))  # Temporal
+        # Real: v_final_mag = funcion_termostato(delta_E)
+
+        # Corriges dirección (mantienes dirección calculada pero ajustas magnitud recibida)
+        v_direction = v_after_collision / cp.linalg.norm(v_after_collision, axis=1, keepdims=True)
+        v_corrected = v_direction * v_final_mag[:, cp.newaxis]
+
+        # Actualizas velocidad tras la colisión
+        v[mask_collision] = v_corrected
 
     # Mascara que define los limites de simulacion [0,0,0] ^ [120,120,180]
     mask_out = (s[:, 0] < -60) | (s[:, 0] > 60) | \
@@ -237,3 +281,27 @@ for t in tqdm(range(timesteps), desc="Progreso"):
 # Guardar el archivo con todas las posiciones simuladas
 np.save("data_files/particle_simulation.npy", all_positions)
 print("Simulación guardada exitosamente en 'particle_simulation.npy'")
+
+import mplcursors
+
+N_graph = len(Temp)
+tiempo = np.arange(N_graph) * dt
+
+fig, ax = plt.subplots(figsize=(9, 5))
+line, = ax.plot(tiempo, Temp, marker='o', markersize=3, linewidth=1.5)
+
+ax.set_xlabel('Tiempo [s]')
+ax.set_ylabel('Temperatura [K]')
+ax.set_title('Temperatura vs Tiempo')
+ax.grid(True)
+
+# Activar cursor interactivo para mostrar valores
+cursor = mplcursors.cursor(line, hover=True)
+
+# Formato del texto emergente
+@cursor.connect("add")
+def on_hover(sel):
+    sel.annotation.set(text=f'Tiempo: {sel.target[0]:.2f}s\nTemperatura: {sel.target[1]:.4f} K')
+
+plt.tight_layout()
+plt.show()
