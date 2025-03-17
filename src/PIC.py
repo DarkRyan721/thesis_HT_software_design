@@ -123,7 +123,7 @@ B0 = 5.0  # Magnitud del campo magnético radial
 s = initialize_particles(N, Rin=Rin, Rex=Rex, L=L)  # Posiciones iniciales
 
 # Definicion de velocidades con limites en cada eje
-Vx_min, Vx_max = -50.0, 50.0
+Vx_min, Vx_max = -5.0, 5.0
 Vy_min, Vy_max = -0.5, 0.5
 Vz_min, Vz_max = 0.0, 100.0
 
