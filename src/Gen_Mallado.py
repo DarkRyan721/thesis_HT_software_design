@@ -1,36 +1,4 @@
-"""
---------------------------------------------------------------------------------
-Script: Generación de malla para SPT-100 (zona de simulación)
---------------------------------------------------------------------------------
-Este script importa un archivo STEP de un SPT-100, extrae los radios interiores y
-exteriores de los cilindros relevantes y construye una geometría en Gmsh para:
-  - El dominio de la pluma (Plume_Domain).
-  - El dominio del propulsor (Thruster_Domain).
-  - Superficies con condiciones de frontera (Gas_inlet, Thruster_outlet, Walls, 
-    Plume_outlet).
-
-Finalmente, se genera la malla 3D y se exporta en dos formatos:
-  - Formato .msh de Gmsh (SimulationZone.msh).
-  - Formato .xdmf para FEniCSx (SimulationZone.xdmf).
-
-Requisitos previos de Python:
-  - gmsh
-  - mpi4py
-  - numpy
-  - dolfinx
-  - dolfinx.io.gmshio (que viene con dolfinx)
-
-Requisitos del sistema:
-  - Tener instalado Gmsh
-  - Tener soporte para MPI (por ejemplo, mpich o openmpi)
-
-Modo de uso (ejemplo):
-  1. Ajustar el nombre del archivo STEP (step_filename).
-  2. Ejecutar el script con un Python compatible (>=3.8).
-
---------------------------------------------------------------------------------
-"""
-
+#-------LIBRERIAS-------
 import gmsh
 import numpy as np
 import sys
@@ -38,6 +6,7 @@ from mpi4py import MPI
 from dolfinx.io import XDMFFile
 import dolfinx.io.gmshio as gmshio
 
+#----------GENERADO DE MALLA------------
 
 def create_mesh(comm: MPI.Comm, model: gmsh.model, name: str, filename: str, mode: str):
     """
@@ -54,22 +23,22 @@ def create_mesh(comm: MPI.Comm, model: gmsh.model, name: str, filename: str, mod
     filename : str
         Nombre del archivo XDMF donde se guardará la malla.
     mode : str
-        Modo de escritura (por ejemplo "w" para escribir la primera vez o "a" para
-        agregar información en un archivo existente).
+        Modo de escritura (por ejemplo "w" para escribir la primera vez 
+        o "a" para agregar información en un archivo existente).
     """
-    # Converte el modelo de Gmsh a una malla para dolfinx junto con las etiquetas
-    # de celdas (ct) y de facetas (ft).
+    # Convirtiendo el modelo de Gmsh a una malla de dolfinx con etiquetas de células (ct) y facetas (ft).
     msh, ct, ft = gmshio.model_to_mesh(model, comm, rank=0)
     
-    # Asigna nombres para la malla y para las etiquetas de celdas y facetas
+    # Asignar nombres para la malla y para las etiquetas de células y facetas.
     msh.name = name
     ct.name = f"{msh.name}_cells"
     ft.name = f"{msh.name}_facets"
 
-    # Escribe la malla y las etiquetas (meshtags) en un archivo .xdmf
+    # Crear conectividad 2D-3D (facetas->volúmenes) necesaria para escribir correctamente las facetas.
+    msh.topology.create_connectivity(2, 3)
+
+    # Guardar la malla y las etiquetas (meshtags) en el archivo XDMF.
     with XDMFFile(msh.comm, filename, mode) as file:
-        # Crea la conectividad 2D-3D (facetas->volúmenes) antes de escribir
-        msh.topology.create_connectivity(2, 3)
         file.write_mesh(msh)
         file.write_meshtags(
             ct, msh.geometry,
@@ -81,214 +50,196 @@ def create_mesh(comm: MPI.Comm, model: gmsh.model, name: str, filename: str, mod
         )
 
 
-def extract_cylinder_radii(step_file: str):
+def solicitar_dimensiones():
     """
-    Importa un archivo STEP y obtiene los radios interior y exterior de los cilindros 
-    así como la 'longitud' (basada en el bounding box máximo) de la geometría SPT-100.
-    
-    Parámetros:
-    -----------
-    step_file : str
-        Nombre o ruta del archivo STEP a importar.
-    
+    Solicita al usuario los valores de radio externo, radio interno y profundidad
+    del canal (en mm), verificando que los datos sean enteros.
+
     Retorna:
     --------
-    rad_int_cyl : float or None
-        Radio interior del cilindro principal.
-    rad_ext_smallcyl : float or None
-        Radio exterior de otro cilindro relevante.
-    lenght : float
-        Longitud total basada en el tamaño máximo en el eje Y (aprox).
+    (r_ext, r_int, profundidad) : tupla de int
+        - r_ext: Radio externo.
+        - r_int: Radio interno.
+        - profundidad: Longitud del canal (altura).
     """
-    gmsh.initialize()
-    gmsh.model.add("ImportedModel")
+    while True:
+        try:
+            r_ext = int(input("Ingresa el radio externo (en mm): "))
+            r_int = int(input("Ingresa el radio interno (en mm): "))
+            profundidad = int(input("Ingresa la profundidad del canal (en mm): "))
+            
+            # Validación 1: radio interno < radio externo.
+            if r_int >= r_ext:
+                print("El radio interno debe ser menor que el radio externo. Intenta de nuevo.\n")
+                continue
+            
+            # Validación 2: todos los valores deben ser positivos.
+            if r_ext <= 0 or r_int <= 0 or profundidad <= 0:
+                print("Todos los valores deben ser positivos. Intenta de nuevo.\n")
+                continue
+            
+            break  # Si se cumplen las validaciones, salimos del bucle.
 
-    # Importa la geometría STEP
-    gmsh.model.occ.importShapes(step_file)
+        except ValueError:
+            print("Error: Por favor ingresa un número entero válido.\n")
+    
+    return r_ext, r_int, profundidad
+
+
+def main():
+    """
+    Función principal que:
+      1. Inicializa Gmsh.
+      2. Solicita al usuario los parámetros geométricos (radios y altura).
+      3. Construye la geometría (un cubo grande + cilindro hueco).
+      4. Genera y etiqueta la malla en Gmsh.
+      5. Exporta la malla en formato .msh y .xdmf.
+      6. Finaliza la sesión de Gmsh.
+    """
+    # Inicializa Gmsh y crea un nuevo modelo:
+    gmsh.initialize()
+    gmsh.model.add("SPT100_Simulation_Zone")
+    
+    # Solicita al usuario los valores de radio externo, interno y profundidad:
+    #R_big, R_small, H = solicitar_dimensiones()
+    R_big = 0.1
+    R_small = 0.056
+    H = 0.02
+
+    # Se define un parámetro adicional para generar un cubo que representará la "pluma" (dominio externo).
+    # Aquí usamos, por ejemplo, un cubo de lado 3 * R_big. 
+    L = 3 * R_big  # Lado del cubo de la pluma
+
+    # (Opcional) Guardar parámetros en un archivo .txt para uso posterior:
+    with open("data_files/geometry_parameters.txt", "w") as f:
+        f.write(f"radio_externo: {R_big}\n")
+        f.write(f"radio_interno: {R_small}\n")
+        f.write(f"profundidad: {H}\n")
+        f.write(f"lado_cubo: {L}\n")
+
+    # -------------------------------------------------------------------------
+    # Construcción de la geometría:
+    #
+    #  - Un cubo de dimensiones L x L x L, que empieza en z=H, para simular la 
+    #    región exterior (plume).
+    #  - Dos cilindros concéntricos (uno externo y uno interno) de altura H, 
+    #    para representar el propulsor y su canal hueco.
+    # -------------------------------------------------------------------------
+
+    # 1) Crear el cubo:
+    cube = gmsh.model.occ.addBox(-L/2, -L/2, H, L, L, L)
+
+    # 2) Crear dos cilindros (externo e interno) que parten de z=0 a z=H:
+    cylinder_outer = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, H, R_big)
+    cylinder_inner = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, H, R_small)
+
+    # 3) "Cortar" el cilindro interno del externo para crear una pared hueca:
+    cylinder = gmsh.model.occ.cut([(3, cylinder_outer)], [(3, cylinder_inner)])
     gmsh.model.occ.synchronize()
 
-    # Se asume que la geometría contiene superficies (2D) de las cuales se 
-    # extraen bounding boxes
-    surfaces = gmsh.model.getEntities(2)
-    
-    xmaxes = []
-    ymaxes = []
-    xminimos = []
+    # 4) Fragmentar el cubo con el cilindro hueco para generar volúmenes separados:
+    fragmented = gmsh.model.occ.fragment([(3, cube)], cylinder[0])
+    gmsh.model.occ.synchronize()
 
-    # Recorre cada superficie y extrae el bounding box
+    # Identificamos los volúmenes resultantes de la fragmentación.
+    # Normalmente, se asume:
+    #   - Volumen 1: el cubo fragmentado (Plume_Domain).
+    #   - Volumen 2: el cilindro (Thruster_Domain).
+    cube_volume = 1
+    cylinder_volume = 2
+
+    # 5) Crear grupos físicos para cada volumen (esto permite asignarles 
+    #    etiquetas identificables en la malla):
+    gmsh.model.addPhysicalGroup(3, [cube_volume], 1)
+    gmsh.model.setPhysicalName(3, 1, "Plume_Domain")
+
+    gmsh.model.addPhysicalGroup(3, [cylinder_volume], 2)
+    gmsh.model.setPhysicalName(3, 2, "Thruster_Domain")
+
+    # -------------------------------------------------------------------------
+    # Etiquetado de superficies (fronteras) para condiciones de contorno:
+    # -------------------------------------------------------------------------
+    surfaces = gmsh.model.get_entities(dim=2)  # Entidades de dimensión 2 (caras)
+
+    inlet_surfaces = []
+    outlet_thruster_surfaces = []
+    cylinder_wall_surfaces = []
+    outlet_plume_surfaces = []
+
+    # Definimos una tolerancia para comparar coordenadas con isclose.
+    tol = 1e-3  
+
     for surface in surfaces:
-        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(surface[0], surface[1])
-        xmaxes.append(xmax)
-        ymaxes.append(ymax)
-        xminimos.append(xmin)
+        # Obtener centro de masa de la superficie
+        com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
 
-    # Cierra la sesión de gmsh (aunque no se llama "()" al final, 
-    # se recomienda gmsh.finalize() con paréntesis para asegurarlo).
-    gmsh.finalize
+        # Si la cara está cerca de z=0 -> entrada de gas
+        if np.isclose(com[2], 0, atol=tol):
+            inlet_surfaces.append(surface[1])
 
-    # Procesa los valores máximos y mínimos para extraer radios y longitud
-    return max_values(xmaxes, ymaxes, xminimos)
+        # Si la cara está cerca de z=H -> salida del propulsor
+        elif np.isclose(com[2], H, atol=tol):
+            outlet_thruster_surfaces.append(surface[1])
+        
+        # Si la cara está cerca de x=±L/2, y=±L/2, o z=H+L -> salida de la pluma
+        elif (np.isclose(com[0],  L/2, atol=tol) or np.isclose(com[0], -L/2, atol=tol) or
+              np.isclose(com[1],  L/2, atol=tol) or np.isclose(com[1], -L/2, atol=tol) or
+              np.isclose(com[2], H + L, atol=tol)):
+            outlet_plume_surfaces.append(surface[1])
 
+        # Lo que no encaja en las categorías anteriores se asume que es pared
+        else:
+            cylinder_wall_surfaces.append(surface[1])
 
-def max_values(xmaxes, ymaxes, xminimos):
-    """
-    Función auxiliar que, a partir de los valores en X y Y de bounding boxes,
-    determina:
-      - rad_int_cyl : Un posible radio interior (segundo más grande en Xmax).
-      - rad_ext_smallcyl : Un posible radio exterior de cilindro más pequeño.
-      - lenght : Tamaño máximo en Y (aprox la altura del cilindro).
-    """
-    # Ordena y quita duplicados
-    unique_xmaxes = sorted(set(xmaxes), reverse=True)
-    unique_ymaxes = sorted(set(ymaxes), reverse=True)
-    unique_xminimos = sorted(set(xminimos), reverse=True)
+    # Ajustes forzados (hardcode) según la geometría específica que generó Gmsh:
+    # Se fuerza a agregar la superficie con ID = 18 a la salida de la pluma.
+    # Esto depende de la numeración interna de Gmsh, que puede variar.
+    # Ojo: Usar con precaución, pues en otras versiones de Gmsh podrían cambiar los IDs.
+    outlet_plume_surfaces.append(18)
 
-    rad_int_cyl = None
-    rad_ext_smallcyl = None
+    # Filtramos la salida del propulsor para quedarnos solo con la superficie ID = 12.
+    outlet_thruster_surfaces = [s for s in outlet_thruster_surfaces if s == 12]
 
-    # Se toman valores absolutos para evitar signos negativos
-    positive_ymaxes = np.abs(unique_ymaxes)
-    positive_xmins = np.abs(unique_xminimos)
+    # 6) Crear grupos físicos para las fronteras:
+    gmsh.model.addPhysicalGroup(2, inlet_surfaces, 3)
+    gmsh.model.setPhysicalName(2, 3, "Gas_inlet")
 
-    # Se asume que la longitud total está dada por la máxima magnitud en Y
-    lenght = max(positive_ymaxes)
+    gmsh.model.addPhysicalGroup(2, outlet_thruster_surfaces, 4)
+    gmsh.model.setPhysicalName(2, 4, "Thruster_outlet")
 
-    # Si hay al menos 2 valores en la lista de xmax, asumimos el segundo
-    # como radio interior.
-    if len(unique_xmaxes) >= 2:
-        rad_int_cyl = unique_xmaxes[1]
+    gmsh.model.addPhysicalGroup(2, cylinder_wall_surfaces, 5)
+    gmsh.model.setPhysicalName(2, 5, "Walls")
+
+    gmsh.model.addPhysicalGroup(2, outlet_plume_surfaces, 6)
+    gmsh.model.setPhysicalName(2, 6, "Plume_outlet")
+
+    # -------------------------------------------------------------------------
+    # Parámetros de discretización de la malla
+    # -------------------------------------------------------------------------
+    # El tamaño mínimo y máximo de los elementos.
+    debye_lenght = 0.00001
+    lambda_factor = 100000
+    element_size = debye_lenght*lambda_factor
     
-    # Para el radio exterior, buscamos el primer valor en 'unique_xmaxes'
-    # que supere el mínimo valor absoluto de 'xmin'.
-    for value in sorted(unique_xmaxes):
-        if value > min(positive_xmins):
-            rad_ext_smallcyl = value
-            break
+    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.001/2) #0.01
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.001)
 
-    return rad_int_cyl, rad_ext_smallcyl, lenght
+    # Generar la malla 3D.
+    gmsh.model.mesh.generate(3)
+
+    # Exportar la malla en formato Gmsh .msh
+    gmsh.write("data_files/SimulationZone.msh")
+
+    # Exportar la malla a formato XDMF para FEniCSx:
+    create_mesh(MPI.COMM_WORLD, gmsh.model, 
+                name="SPT100_Simulation_Zone",
+                filename="data_files/SimulationZone.xdmf",
+                mode="w")
+
+    # Finaliza la sesión de Gmsh (muy importante para liberar recursos).
+    gmsh.finalize()
 
 
-# -----------------------------------------------------------------------------
-# Main del script: construcción de la geometría y generación de malla
-# -----------------------------------------------------------------------------
-# Ajustar este nombre si el archivo STEP se encuentra en otra ruta o tiene 
-# otro nombre.
-step_filename = "data_files/SPT-100(2).step"
-
-# Se extraen radios y la longitud de la geometría a partir del STEP
-rad_int_cyl, rad_ext_smallcyl, lenght = extract_cylinder_radii(step_filename)
-
-# Inicializa Gmsh para empezar a construir una nueva geometría
-gmsh.initialize()
-gmsh.model.add("SPT100_Simulation_Zone")
-
-# Define parámetros geométricos clave
-R_big = rad_int_cyl        # Radio principal del cilindro (externo)
-R_small = rad_ext_smallcyl # Radio interno de otro cilindro
-L = 3 * R_big              # Escala para el cubo
-H = lenght                 # Altura (se toma el bounding box en Y como referencia)
-
-#Crear archivo txt de los parametro geometricos para enviarlos a otros archivos py
-with open("data_files/geometry_parameters.txt","w") as f:
-    f.write(f"radio_externo: {rad_int_cyl}\n")
-    f.write(f"radio_interno: {rad_ext_smallcyl}\n")
-    f.write(f"profundidad: {H}\n")
-    f.write(f"lado_cubo: {L}\n")
-
-# Crea un cubo con centro en (-L/2, -L/2) y altura H
-#   - Origen en (-L/2, -L/2, H)
-#   - Dimensiones L x L x L
-cube = gmsh.model.occ.addBox(-L/2, -L/2, H, L, L, L)
-
-# Crea dos cilindros (externo e interno) en la base (z=0) y con altura H
-cylinder_outer = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, H, R_big)
-cylinder_inner = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, H, R_small)
-
-# Corta el cilindro interno del cilindro externo para obtener una 'pared'
-cylinder = gmsh.model.occ.cut([(3, cylinder_outer)], [(3, cylinder_inner)])
-gmsh.model.occ.synchronize()
-
-# Fragmenta el cubo con el cilindro hueco, produciendo volúmenes separados
-fragmented = gmsh.model.occ.fragment([(3, cube)], cylinder[0])
-gmsh.model.occ.synchronize()
-
-# Se sabe que:
-#   - El volumen 1 corresponde al cubo fragmentado.
-#   - El volumen 2 corresponde al cilindro (hueco).
-cube_volume = 1
-cylinder_volume = 2
-
-# Crea grupos físicos (labels) para identificar cada volumen
-gmsh.model.addPhysicalGroup(3, [cube_volume], 1)
-gmsh.model.setPhysicalName(3, 1, "Plume_Domain")
-
-gmsh.model.addPhysicalGroup(3, [cylinder_volume], 2)
-gmsh.model.setPhysicalName(3, 2, "Thruster_Domain")
-
-# Identifica las superficies (2D) para asignar condiciones de frontera
-surfaces = gmsh.model.get_entities(2)
-
-inlet_surfaces = []
-outlet_thruster_surfaces = []
-cylinder_wall_surfaces = []
-outlet_plume_surfaces = []
-
-tol = 1e-3  # Tolerancia para comparación de floats (center of mass)
-
-for surface in surfaces:
-    # Obtiene el centro de masa de la superficie
-    com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
-
-    # Si la cara está cerca de z=0, se asigna como la entrada de gas
-    if np.isclose(com[2], 0, atol=tol):
-        inlet_surfaces.append(surface[1])
-
-    # Si la cara está cerca de z=H, se asigna como la salida del propulsor
-    elif np.isclose(com[2], H, atol=tol):
-        outlet_thruster_surfaces.append(surface[1])
-    
-    # Si la cara está cerca de x=±L/2, y=±L/2, z=H+L, es la salida de la pluma
-    elif (np.isclose(com[0], L/2, atol=tol) or np.isclose(com[0], -L/2, atol=tol) or
-          np.isclose(com[2], L+H, atol=tol) or np.isclose(com[1], L/2, atol=tol) or
-          np.isclose(com[1], -L/2, atol=tol)):
-        outlet_plume_surfaces.append(surface[1])
-
-    # Si no cumple ninguna anterior, se asume que es la pared del cilindro
-    else:
-        cylinder_wall_surfaces.append(surface[1])
-
-# (Ajustes particulares) Se fuerza a agregar la superficie '18' como salida de pluma
-outlet_plume_surfaces.append(18)
-
-# Se filtra la salida del propulsor para quedarse solo con la superficie '12'
-outlet_thruster_surfaces = [s for s in outlet_thruster_surfaces if s == 12]
-
-# Agrupa las superficies en grupos físicos
-gmsh.model.addPhysicalGroup(2, inlet_surfaces, 3)
-gmsh.model.setPhysicalName(2, 3, "Gas_inlet")
-
-gmsh.model.addPhysicalGroup(2, outlet_thruster_surfaces, 4)
-gmsh.model.setPhysicalName(2, 4, "Thruster_outlet")
-
-gmsh.model.addPhysicalGroup(2, cylinder_wall_surfaces, 5)
-gmsh.model.setPhysicalName(2, 5, "Walls")
-
-gmsh.model.addPhysicalGroup(2, outlet_plume_surfaces, 6)
-gmsh.model.setPhysicalName(2, 6, "Plume_outlet")
-
-# Define parámetros de discretización (tamaño mínimo y máximo de los elementos)
-gmsh.option.setNumber("Mesh.MeshSizeMin", R_big / 10)
-gmsh.option.setNumber("Mesh.MeshSizeMax", R_big / 5)
-
-# Genera la malla 3D
-gmsh.model.mesh.generate(3)
-
-# Exporta la malla en formato .msh (de Gmsh)
-gmsh.write("data_files/SimulationZone.msh")
-
-# Crea y exporta la malla en formato XDMF (compatible con FEniCSx)
-create_mesh(MPI.COMM_WORLD, gmsh.model, "SPT100_Simulation_Zone", "data_files/SimulationZone.xdmf", "w")
-
-# Finaliza la sesión de Gmsh
-gmsh.finalize()
+if __name__ == "__main__":
+    main()
 
