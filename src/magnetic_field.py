@@ -260,5 +260,5 @@ def Field_view():
 
 #wire_plot()
 #Solenoid_points_plot()
-color_map_B()
+#color_map_B()
 #Field_view()
