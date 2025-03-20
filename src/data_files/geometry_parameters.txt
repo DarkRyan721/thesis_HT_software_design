@@ -1,4 +1,4 @@
-radio_externo: 40.0000001
-radio_interno: 20.0000001
-profundidad: 59.9999999
-lado_cubo: 120.00000030000001
+radio_externo: 0.1
+radio_interno: 0.056
+profundidad: 0.02
+lado_cubo: 0.30000000000000004
