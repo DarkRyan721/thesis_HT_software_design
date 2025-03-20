@@ -221,8 +221,8 @@ def main():
     lambda_factor = 100000
     element_size = debye_lenght*lambda_factor
     
-    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.001/2) #0.01
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.001)
+    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.01/2) #0.01
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.01)
 
     # Generar la malla 3D.
     gmsh.model.mesh.generate(3)
