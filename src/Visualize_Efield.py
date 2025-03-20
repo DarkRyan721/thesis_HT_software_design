@@ -1,65 +1,120 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import cm
+import plotly.graph_objects as go
 
 # Cargar datos
 E_np = np.load('data_files/Electric_Field_np.npy')
 
-# Filtrar datos con E > 0 (opcional, ajusta según necesidad)
-mask = np.any(E_np[:, 3:] > 0, axis=1)
+# Filtrar datos con Z ≤ 0.03 (coordenada original)
+mask = E_np[:, 2] <= 0.03
 filtered_data = E_np[mask]
 
-# Extraer coordenadas XYZ y componentes Ex, Ey, Ez
-x = filtered_data[:, 0]   # Coordenada X
-y = filtered_data[:, 1]   # Coordenada Y
-z = filtered_data[:, 2]   # Coordenada Z
-Ex = filtered_data[:, 3]  # Componente Ex
-Ey = filtered_data[:, 4]  # Componente Ey
-Ez = filtered_data[:, 5]  # Componente Ez
+# Extraer coordenadas y componentes (rotadas)
+x_rot = filtered_data[:, 2]  # Eje X visual = Z original
+y_rot = filtered_data[:, 0]  # Eje Y visual = X original
+z_rot = filtered_data[:, 1]  # Eje Z visual = Y original
 
-# Calcular magnitud del campo eléctrico para el mapa de colores
-magnitude = np.sqrt(Ex**2 + Ey**2 + Ez**2)
+# Calcular magnitud del campo
+magnitude = np.sqrt(filtered_data[:, 3]**2 + filtered_data[:, 4]**2 + filtered_data[:, 5]**2)
 
-# Crear figura 3D
-fig = plt.figure(figsize=(12, 10))
-ax = fig.add_subplot(111, projection='3d')
+# 1. Filtrar puntos en Z original = 0 (con tolerancia)
+epsilon = 1e-5
+mask_z0 = np.abs(filtered_data[:, 2]) < epsilon  # Z original ≈ 0
+points_z0 = filtered_data[mask_z0]
 
-# Configurar mapa de colores (normalizado)
-norm = plt.Normalize(vmin=np.min(magnitude), vmax=np.max(magnitude))
-colors = cm.plasma(norm(magnitude))  # Paleta "plasma"
+# 2. Generar vectores y flechas
+segments = []
+arrow_positions = []
+arrow_directions = []
+colors = []
 
-# Graficar vectores 3D con colores según la magnitud
-quiver = ax.quiver(
-    x, y, z,          # Posiciones (X, Y, Z)
-    Ex, Ey, Ez,       # Componentes del campo (Ex, Ey, Ez)
-    color=colors,      # Colores basados en la magnitud
-    length=0.1,       # Longitud base de las flechas (ajusta según tus datos)
-    arrow_length_ratio=0.5,  # Proporción cabeza/flecha
-    linewidth=0.5,    # Grosor de las flechas
-    alpha=0.8         # Transparencia
+for point in points_z0:
+    # Coordenadas originales del punto
+    x_orig = point[0]  # X original (será Y visual)
+    y_orig = point[1]  # Y original (será Z visual)
+    
+    # Punto inicial y final (rotados)
+    start = [0, x_orig, y_orig]          # Z=0
+    end = [0.01, x_orig, y_orig]         # Z=0.01
+    
+    # Línea
+    segments.extend([start, end, [None]*3])
+    
+    # Flecha (posición final y dirección)
+    arrow_positions.append(end)
+    arrow_directions.append([0.002, 0, 0])  # Dirección X visual (Z original)
+    
+    # Color basado en magnitud
+    mag = np.sqrt(point[3]**2 + point[4]**2 + point[5]**2)
+    colors.append(mag)
+
+# Convertir a arrays numpy
+segments = np.array(segments)
+x_lines, y_lines, z_lines = segments.T
+arrow_positions = np.array(arrow_positions)
+arrow_directions = np.array(arrow_directions)
+
+# Crear figura
+fig = go.Figure()
+
+# Añadir puntos del campo eléctrico
+fig.add_trace(go.Scatter3d(
+    x=x_rot,
+    y=y_rot,
+    z=z_rot,
+    mode='markers',
+    marker=dict(
+        size=1,
+        color=magnitude,
+        colorscale='Plasma',
+        opacity=0.7,
+        colorbar=dict(title='|E| (N/C)')
+)))
+
+# Añadir líneas de vectores
+fig.add_trace(go.Scatter3d(
+    x=x_lines,
+    y=y_lines,
+    z=z_lines,
+    mode='lines',
+    line=dict(
+        color="yellow",
+        width=7,
+        cmin=np.min(magnitude),
+        cmax=np.max(magnitude)
+    ),
+    opacity=0.4,
+    name='Vectores'
+))
+
+# Añadir flechas (conos)
+fig.add_trace(go.Cone(
+    x=arrow_positions[:, 0],  # Posiciones X (Z original)
+    y=arrow_positions[:, 1],  # Posiciones Y (X original)
+    z=arrow_positions[:, 2],  # Posiciones Z (Y original)
+    u=arrow_directions[:, 0],  # Dirección X (Z original)
+    v=arrow_directions[:, 1],  # Dirección Y (X original)
+    w=arrow_directions[:, 2],  # Dirección Z (Y original)
+    colorscale=[[0, 'yellow'], [1, 'yellow']],
+    #colorscale='Plasma',
+    sizemode="absolute",
+    sizeref=0.005,  # Ajustar tamaño de flechas
+    anchor="tip",
+    showscale=False
+))
+
+# Configuración de ejes y cámara
+fig.update_layout(
+    title='Campo Eléctrico con Vectores en Z=0 (Z ≤ 0.03 m)',
+    scene=dict(
+        xaxis=dict(title='Z [m]', range=[0, 0.03]),  # Eje X visual = Z original
+        yaxis=dict(title='X [m]', range=[-0.1, 0.1]),  # Eje Y visual = X original
+        zaxis=dict(title='Y [m]', range=[-0.1, 0.1]),  # Eje Z visual = Y original
+        camera=dict(
+            eye=dict(x=0.5, y=1.5, z=0.5),  # Vista oblicua
+            up=dict(x=0, y=0, z=1)
+        )
+    ),
+    template='plotly_dark'
 )
 
-# Añadir barra de colores
-cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cm.plasma), ax=ax, shrink=0.7)
-cbar.set_label('Magnitud del Campo Eléctrico (N/C)', fontsize=12)
-
-# Añadir etiquetas y estilo profesional
-ax.set_xlabel('X [m]', fontsize=12, labelpad=10)
-ax.set_ylabel('Y [m]', fontsize=12, labelpad=10)
-ax.set_zlabel('Z [m]', fontsize=12, labelpad=10)
-ax.set_title('Campo Eléctrico 3D con Vectores y Mapa de Colores', fontsize=14, fontweight='bold', pad=20)
-
-# Ajustar perspectiva (elevación y azimut)
-ax.view_init(elev=25, azim=45)  # Ángulo de visualización
-
-# Añadir grid y fondo
-ax.grid(True, linestyle='--', alpha=0.5)
-ax.xaxis.pane.fill = False
-ax.yaxis.pane.fill = False
-ax.zaxis.pane.fill = False
-ax.xaxis.pane.set_edgecolor('w')
-ax.yaxis.pane.set_edgecolor('w')
-ax.zaxis.pane.set_edgecolor('w')
-
-plt.tight_layout()
-plt.show()
+fig.show()
