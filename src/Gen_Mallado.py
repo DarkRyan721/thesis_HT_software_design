@@ -102,13 +102,13 @@ def main():
     
     # Solicita al usuario los valores de radio externo, interno y profundidad:
     #R_big, R_small, H = solicitar_dimensiones()
-    R_big = 0.1
-    R_small = 0.056
+    R_big = 0.1/2
+    R_small = 0.056/2
     H = 0.02
 
     # Se define un parámetro adicional para generar un cubo que representará la "pluma" (dominio externo).
     # Aquí usamos, por ejemplo, un cubo de lado 3 * R_big. 
-    L = 3 * R_big  # Lado del cubo de la pluma
+    L = 2 * R_big  # Lado del cubo de la pluma
 
     # (Opcional) Guardar parámetros en un archivo .txt para uso posterior:
     with open("data_files/geometry_parameters.txt", "w") as f:
@@ -165,6 +165,7 @@ def main():
     outlet_thruster_surfaces = []
     cylinder_wall_surfaces = []
     outlet_plume_surfaces = []
+    ids_oultet =[]
 
     # Definimos una tolerancia para comparar coordenadas con isclose.
     tol = 1e-3  
@@ -180,7 +181,6 @@ def main():
         # Si la cara está cerca de z=H -> salida del propulsor
         elif np.isclose(com[2], H, atol=tol):
             outlet_thruster_surfaces.append(surface[1])
-        
         # Si la cara está cerca de x=±L/2, y=±L/2, o z=H+L -> salida de la pluma
         elif (np.isclose(com[0],  L/2, atol=tol) or np.isclose(com[0], -L/2, atol=tol) or
               np.isclose(com[1],  L/2, atol=tol) or np.isclose(com[1], -L/2, atol=tol) or
@@ -195,10 +195,14 @@ def main():
     # Se fuerza a agregar la superficie con ID = 18 a la salida de la pluma.
     # Esto depende de la numeración interna de Gmsh, que puede variar.
     # Ojo: Usar con precaución, pues en otras versiones de Gmsh podrían cambiar los IDs.
-    outlet_plume_surfaces.append(18)
+    outlet_plume_surfaces.append(5)
+    outlet_plume_surfaces.append(6)
+    outlet_plume_surfaces.append(8)
+    outlet_plume_surfaces.append(9)
+    outlet_plume_surfaces.append(10)
 
     # Filtramos la salida del propulsor para quedarnos solo con la superficie ID = 12.
-    outlet_thruster_surfaces = [s for s in outlet_thruster_surfaces if s == 12]
+    outlet_thruster_surfaces = [s for s in outlet_thruster_surfaces if s == 7]
 
     # 6) Crear grupos físicos para las fronteras:
     gmsh.model.addPhysicalGroup(2, inlet_surfaces, 3)
@@ -221,8 +225,8 @@ def main():
     lambda_factor = 100000
     element_size = debye_lenght*lambda_factor
     
-    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.01/2) #0.01
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.01)
+    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.003/2) #0.01
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.003)
 
     # Generar la malla 3D.
     gmsh.model.mesh.generate(3)
