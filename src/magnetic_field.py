@@ -8,13 +8,13 @@ import matplotlib.colors as colors
 #                   1] Parametros iniciales del campo magnetico
 
 # Numero de partes del solenoide
-nSteps = 2500 
+nSteps = 5000 
 
 # Longitud, Radio y # vueltas del solenoide
 L = 0.021 #[m]
-Rin = 0.027 #[m]
-Rout = 0.8*Rin
+Rin = 0.023 #[m]
 Rext = 0.05
+Rout = 0.8*Rin
 N = 200  #[1]
 
 # Constante de permiabilidad del vacio y corriente del solenoides
@@ -257,6 +257,60 @@ def Field_view():
     ax.set_title('Líneas del Campo Magnético en el Plano XY')
 
     plt.show()
+
+def Magnetic_field_to_PIC():
+    E_File = np.load("data_files/Electric_Field_np.npy")
+
+    spatial_coords = E_File[:, :3]
+    X = spatial_coords[:, 0]
+    Y = spatial_coords[:, 1]
+    Z = spatial_coords[:, 2]
+
+    Bx_inner, By_inner, Bz_inner, B_mag = Magnetic_Field(X, Y, Z, X_inner, Y_inner, Z_inner)
+    Bx1, By1, Bz1, _ = Magnetic_Field(X, Y, Z, X1, Y1, Z1)
+    Bx2, By2, Bz2, _ = Magnetic_Field(X, Y, Z, X2, Y2, Z2)
+    Bx3, By3, Bz3, _ = Magnetic_Field(X, Y, Z, X3, Y3, Z3)
+    Bx4, By4, Bz4, _ = Magnetic_Field(X, Y, Z, X4, Y4, Z4)
+
+    Bx = Bx_inner - (Bx1+Bx2+Bx3+Bx4)
+    By = By_inner - (By1+By2+By3+By4)
+    Bz = Bz_inner - (Bz1+Bz2+Bz3+Bz4)
+
+    MagField_array = np.column_stack((X, Y, Z, Bx, By, Bz))
+
+    # Guardamos en un archivo NumPy
+    np.save("data_files/Magnetic_Field_np.npy", MagField_array)
+
+
+    max_arrow_length = 0.002  # Longitud máxima de las flechas
+    Bx_limited = np.clip(Bx, -max_arrow_length, max_arrow_length)
+    By_limited = np.clip(By, -max_arrow_length, max_arrow_length)
+    By_limited = np.clip(By, -max_arrow_length, max_arrow_length)
+
+    # Plotear el campo magnético en el plano XY usando flechas
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.quiver(spatial_coords[:, 0], spatial_coords[:, 1], Bx_limited, By_limited, angles='xy', scale_units='xy', scale=1, color='b')
+
+    # Etiquetas y título
+    ax.set_xlabel('X [m]')
+    ax.set_ylabel('Y [m]')
+    ax.set_xlim(-(Rext+(0.2*Rext)), (Rext+(0.2*Rext)))
+    ax.set_ylim(-(Rext+(0.2*Rext)), (Rext+(0.2*Rext)))
+    ax.set_title('Líneas del Campo Magnético en el Plano XY')
+
+    # Agregar los dos círculos (diámetros 0.056 y 0.1)
+    circulo1 = plt.Circle((0, 0), 0.056/2, fill=False, linewidth=2)
+    circulo2 = plt.Circle((0, 0), 0.1/2, fill=False, linewidth=2)
+
+    ax.add_patch(circulo1)
+    ax.add_patch(circulo2)
+
+    plt.show()
+
+
+
+
+Magnetic_field_to_PIC()
 
 #wire_plot()
 #Solenoid_points_plot()

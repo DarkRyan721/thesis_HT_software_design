@@ -39,6 +39,7 @@ def initialize_particles(N, Rin, Rex, L):
 #               2] Tratamiento del campo electrico calculado con LaPlace
 
 E_Field_File = np.load("data_files/Electric_Field_np.npy") # Archivo numpy con E calculado
+M_Field_File = np.load("data_files/Magnetic_Field_np.npy")
 
 """
     Interpolator_Electric_Field:
@@ -85,11 +86,39 @@ def Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s):
     # retorna el campo electrico en un solo vector/matriz transpuesto
     return np.vstack((Ex, Ey, Ez)).T 
 
+def Interpolator_Magnetic_Field(M_Field_File):
+
+    # Extrayendo las coordenadas espaciales(X,Y,Z) del campo electrico
+    points = M_Field_File[:, :3]
+
+    # Extrayendo los valores del campo electrico en cada eje coordenado
+    Ex_values = M_Field_File[:, 3]  # Campo Ex
+    Ey_values = M_Field_File[:, 4]  # Campo Ey
+    Ez_values = M_Field_File[:, 5]  # Campo Ez
+
+    # Creando la funcion de interpolacion para cada campo electrico(Ex, Ey, Ez)
+    tree = cKDTree(points)
+
+    return tree, Ex_values, Ey_values, Ez_values
+
+def Interpolate_M(tree, Mx_values, My_values, Mz_values, s):
+
+    # Busca el indice(idx) del campo electrico correspondiente al punto [s]
+    _, idx = tree.query(s.get())
+
+    # Obtener los valores de Ex, Ey, Ez segun el indice [idx]
+    Mx = Mx_values[idx]
+    My = My_values[idx]
+    Mz = Mz_values[idx]
+
+    # retorna el campo electrico en un solo vector/matriz transpuesto
+    return np.vstack((Mx, My, Mz)).T 
+
 #_____________________________________________________________________________________________________
 #               3] Parámetros de simulación
 
-N = 1000000 # Número de partículas
-dt = 0.03  # Delta de tiempo
+N = 100000 # Número de partículas
+dt = 0.00007  # Delta de tiempo
 q_m = 1.0  # Valor Carga/Masa
 m = 2.18e-25
 
@@ -115,7 +144,8 @@ Rex = info.get("radio_externo",0) # Primer radio externo del cilindro hueco
 L = info.get("profundidad",0) # Longitud del cilindro
 
 tree, Ex_values, Ey_values, Ez_values = Interpolator_Electric_Field(E_Field_File)  # Campo eléctrico y su interpolador
-B0 = 5.0  # Magnitud del campo magnético radial
+tree_m, Mx_values, My_values, Mz_values = Interpolator_Magnetic_Field(M_Field_File)
+B0 = 1000  # Magnitud del campo magnético radial
 
 #_____________________________________________________________________________________________________
 #               4] Inicialización de partículas (posición y velocidad)
@@ -123,9 +153,9 @@ B0 = 5.0  # Magnitud del campo magnético radial
 s = initialize_particles(N, Rin=Rin, Rex=Rex, L=L)  # Posiciones iniciales
 
 # Definicion de velocidades con limites en cada eje
-Vx_min, Vx_max = -5.0, 5.0
-Vy_min, Vy_max = -0.5, 0.5
-Vz_min, Vz_max = 0.0, 100.0
+Vx_min, Vx_max = -0, 0
+Vy_min, Vy_max = -0, 0
+Vz_min, Vz_max = 75.0, 100.0
 
 v_x = Vx_min + (Vx_max - Vx_min) * np.random.rand(N).astype(np.float32)
 v_y = Vy_min + (Vy_max - Vy_min) * np.random.rand(N).astype(np.float32)
@@ -155,28 +185,30 @@ E_gpu = cp.array(E)
 Temp = []
 
 def move_particles(s, v, dt, q_m, E, B0):
+    # # Definira el rango en el campo magnetico tiene valor [0,0.02] en Z
+    # mask_B = (s[:, 2] >= 0) & (s[:,2] <= 0.02)
 
-    # Definira el rango en el campo magnetico tiene valor [50,60] en Z
-    mask_B = (s[:, 2] >= 50) & (s[:,2] <= 60)
+    # # Calcular el radio en el plano XY
+    # r = cp.sqrt((s[:, 0])**2 + (s[:, 1])**2)
 
-    # Calcular el radio en el plano XY
-    r = cp.sqrt((s[:, 0])**2 + (s[:, 1])**2) + 1e-6
-
-    # Inicializando vectores de campo magnetico
-    Bx, By, Bz = cp.zeros_like(s[:, 0]), cp.zeros_like(s[:, 0]), cp.zeros_like(s[:, 0])
+    # # Inicializando vectores de campo magnetico
+    # Bx, By, Bz = cp.zeros_like(s[:, 0]), cp.zeros_like(s[:, 0]), cp.zeros_like(s[:, 0])
     
-    # Campo magnético radial hacia el centro del cilindro
-    Bx[mask_B] = -B0 * ((s[mask_B, 0]) / r[mask_B])
-    By[mask_B] = -B0 * ((s[mask_B, 1]) / r[mask_B])
+    # # Campo magnético radial hacia el centro del cilindro
+    # Bx[mask_B] = -B0 * ((s[mask_B, 0]) / r[mask_B])
+    # By[mask_B] = -B0 * ((s[mask_B, 1]) / r[mask_B])
 
-    # Crear la matriz del campo magnético para todas las partículas
-    B = cp.column_stack((Bx, By, Bz))  
+    # # Crear la matriz del campo magnético para todas las partículas
+    # B = cp.column_stack((Bx, By, Bz))  
 
-    # Cálculo optimizado de la Fuerza de Lorentz
-    F_Lorentz = cp.cross(v, B)
+    # # Cálculo optimizado de la Fuerza de Lorentz
+
+    # B = Interpolate_M(tree_m, Mx_values, My_values, Mz_values, s)
+
+    # F_Lorentz = cp.cross(v, B)
 
     # Actualizacion de velocidad
-    v += q_m * (E + F_Lorentz) * dt
+    v += q_m * (E+0) * dt
 
     # Actualizacion de posicion
     s += v * dt
@@ -224,10 +256,17 @@ def move_particles(s, v, dt, q_m, E, B0):
         # Actualizas velocidad tras la colisión
         v[mask_collision] = v_corrected
 
+        r_exceso = r_collision[mask_collision] - Rex
+
+        # 2) Mover la partícula de vuelta a la frontera
+        #    Restando ese exceso en la dirección normal.
+        s[mask_collision, 0] -= r_exceso * normal_vector[:, 0]
+        s[mask_collision, 1] -= r_exceso * normal_vector[:, 1]
+
     # Mascara que define los limites de simulacion [0,0,0] ^ [120,120,180]
-    mask_out = (s[:, 0] < -60) | (s[:, 0] > 60) | \
-               (s[:, 1] < -60) | (s[:, 1] > 60) | \
-               (s[:, 2] < 0) | (s[:, 2] > 180)
+    mask_out = (s[:, 0] < -3*Rex) | (s[:, 0] > 3*Rex) | \
+               (s[:, 1] < -3*Rex) | (s[:, 1] > 3*Rex) | \
+               (s[:, 2] < 0) | (s[:, 2] > 3*Rex)
     
     # Cantidad de particulas que deben re ingresar al sistema
     num_reinsert = int(cp.sum(mask_out).item()) 
@@ -241,7 +280,7 @@ def move_particles(s, v, dt, q_m, E, B0):
         # Pasamos a coordenadas cartesianas
         x_new = r_new * cp.cos(theta_new)
         y_new = r_new * cp.sin(theta_new)
-        z_new = cp.full(num_reinsert, 1, dtype=cp.float32)  # Z siempre en 180
+        z_new = cp.full(num_reinsert, 0, dtype=cp.float32)  # Z siempre en 180
 
         # Asignamos las nuevas posiciones
         s[mask_out, 0] = x_new
@@ -282,26 +321,26 @@ for t in tqdm(range(timesteps), desc="Progreso"):
 np.save("data_files/particle_simulation.npy", all_positions)
 print("Simulación guardada exitosamente en 'particle_simulation.npy'")
 
-import mplcursors
+# import mplcursors
 
-N_graph = len(Temp)
-tiempo = np.arange(N_graph) * dt
+# N_graph = len(Temp)
+# tiempo = np.arange(N_graph) * dt
 
-fig, ax = plt.subplots(figsize=(9, 5))
-line, = ax.plot(tiempo, Temp, marker='o', markersize=3, linewidth=1.5)
+# fig, ax = plt.subplots(figsize=(9, 5))
+# line, = ax.plot(tiempo, Temp, marker='o', markersize=3, linewidth=1.5)
 
-ax.set_xlabel('Tiempo [s]')
-ax.set_ylabel('Temperatura [K]')
-ax.set_title('Temperatura vs Tiempo')
-ax.grid(True)
+# ax.set_xlabel('Tiempo [s]')
+# ax.set_ylabel('Temperatura [K]')
+# ax.set_title('Temperatura vs Tiempo')
+# ax.grid(True)
 
-# Activar cursor interactivo para mostrar valores
-cursor = mplcursors.cursor(line, hover=True)
+# # Activar cursor interactivo para mostrar valores
+# cursor = mplcursors.cursor(line, hover=True)
 
-# Formato del texto emergente
-@cursor.connect("add")
-def on_hover(sel):
-    sel.annotation.set(text=f'Tiempo: {sel.target[0]:.2f}s\nTemperatura: {sel.target[1]:.4f} K')
+# # Formato del texto emergente
+# @cursor.connect("add")
+# def on_hover(sel):
+#     sel.annotation.set(text=f'Tiempo: {sel.target[0]:.2f}s\nTemperatura: {sel.target[1]:.4f} K')
 
-plt.tight_layout()
-plt.show()
+# plt.tight_layout()
+# plt.show()
