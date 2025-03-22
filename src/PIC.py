@@ -3,7 +3,6 @@ from scipy.spatial import cKDTree
 import cupy as cp
 from tqdm import tqdm
 from thermostat import aplicar_termostato
-import matplotlib.pyplot as plt
 
 #_____________________________________________________________________________________________________
 #               1] Funcion para distribuir particulas por el espacio de manera cilindrica
@@ -208,7 +207,7 @@ def move_particles(s, v, dt, q_m, E, B0):
     # F_Lorentz = cp.cross(v, B)
 
     # Actualizacion de velocidad
-    v += q_m * (E+0) * dt
+    v += q_m * (E) * dt
 
     # Actualizacion de posicion
     s += v * dt

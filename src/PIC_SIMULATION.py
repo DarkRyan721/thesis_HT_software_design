@@ -5,7 +5,7 @@ import time
 #_____________________________________________________________________________________________________
 #           1] Cargar posiciones de las particulas en el tiempo
 
-all_positions = np.load("data_files/Electron_simulation.npy", mmap_mode="r")
+all_positions = np.load("data_files/particle_simulation.npy", mmap_mode="r")
 num_frames, num_particles, _ = all_positions.shape
 
 #_____________________________________________________________________________________________________
@@ -89,7 +89,7 @@ plotter.add_light(light)
 particles = pv.PolyData(all_positions[0])
 
 # Añadir partículas al plotter
-particle_actor = plotter.add_mesh(particles, color='#74faf2', point_size=3, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
+particle_actor = plotter.add_mesh(particles, color='#74faf2', point_size=0.5, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
 plotter.add_text("\nHall Effect Thruster", position="upper_edge", color='white')
 
 # Callback de cierre de ventana

@@ -24,7 +24,7 @@ def initialize_particles(N, Rin, Rex, L):
     # Generacion uniforme de valores cilindricos(r, theta, z)
     r = np.sqrt(np.random.uniform(Rin**2, Rex**2, N))
     theta = np.random.uniform(0, 2*np.pi, N)
-    z = np.random.uniform(0.2*Rex, 0.3*Rex, N)
+    z = np.random.uniform(L/4, 3*L/4, N)
 
     # Conversion a coordenadas cartesianas
     x = r * np.cos(theta)
@@ -118,8 +118,8 @@ def Interpolate_M(tree, Mx_values, My_values, Mz_values, s):
 #               3] Parámetros de simulación
 
 N = 1000 # Número de partículas
-dt = 0.0005 # Delta de tiempo
-q_m = -1.76e11#-1.76e11  # Valor Carga/Masa
+dt = 1e-10 # Delta de tiempo
+q_m = -1.76e11  # Valor Carga/Masa
 m = 2.18e-25
 
 #Lectura de parametro geometricos (Archivo txt)
@@ -141,11 +141,10 @@ info = leer_datos_archivo(ruta)
 
 Rin = info.get("radio_interno",0) # Radio interno del cilindro hueco
 Rex = info.get("radio_externo",0) # Primer radio externo del cilindro hueco
-L = 0.15 # Longitud del cilindro
+L = info.get("profundidad",0) # Longitud del cilindro
 
 tree, Ex_values, Ey_values, Ez_values = Interpolator_Electric_Field(E_Field_File)  # Campo eléctrico y su interpolador
 tree_m, Mx_values, My_values, Mz_values = Interpolator_Magnetic_Field(M_Field_File)
-B0 = 1000  # Magnitud del campo magnético radial
 
 #_____________________________________________________________________________________________________
 #               4] Inicialización de partículas (posición y velocidad)
@@ -155,7 +154,7 @@ s = initialize_particles(N, Rin=Rin, Rex=Rex, L=L)  # Posiciones iniciales
 # Definicion de velocidades con limites en cada eje
 Vx_min, Vx_max = -0, 0
 Vy_min, Vy_max = -0, 0
-Vz_min, Vz_max = -100.0, -75.0
+Vz_min, Vz_max = -10000000.0, -9500000.0
 
 v_x = Vx_min + (Vx_max - Vx_min) * np.random.rand(N).astype(np.float32)
 v_y = Vy_min + (Vy_max - Vy_min) * np.random.rand(N).astype(np.float32)
@@ -208,7 +207,7 @@ def move_particles(s, v, dt, q_m):
     F_Lorentz = cp.cross(v, B)
 
     # Actualizacion de velocidad
-    v += q_m * (E) * dt
+    v += q_m * ((E)+(F_Lorentz)) * dt
 
     # Actualizacion de posicion
     s += v * dt
@@ -280,7 +279,7 @@ def move_particles(s, v, dt, q_m):
         # Pasamos a coordenadas cartesianas
         x_new = r_new * cp.cos(theta_new)
         y_new = r_new * cp.sin(theta_new)
-        z_new = cp.full(num_reinsert, 3*Rex, dtype=cp.float32)  # Z siempre en 180
+        z_new = cp.full(num_reinsert, L+0.01, dtype=cp.float32)  # Z siempre en 180
 
         # Asignamos las nuevas posiciones
         s[mask_out, 0] = x_new
