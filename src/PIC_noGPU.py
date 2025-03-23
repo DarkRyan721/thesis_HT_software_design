@@ -1,305 +1,312 @@
 import numpy as np
 from scipy.spatial import cKDTree
 from tqdm import tqdm
-from thermostat import aplicar_termostato
-import matplotlib.pyplot as plt
+import math
+import pickle
 
-#_____________________________________________________________________________________________________
-#               1] Funcion para distribuir particulas por el espacio de manera cilindrica
-
-"""
-    initialize_particles:
-
-    Funcion encargada de recibir la geometria del cilindro(Rin, Rex, L) y generar N particulas en el
-    espacio permitido definido por esta misma geometria.
-
-    N -> Numero de particulas
-    Rin -> Radio interno
-    Rex -> Radio externo
-    L -> Longitud del cilindro
-"""
-def initialize_particles(N, Rin, Rex, L):
-    
-    # Generacion uniforme de valores cilindricos(r, theta, z)
-    r = np.sqrt(np.random.uniform(Rin**2, Rex**2, N))
-    theta = np.random.uniform(0, 2*np.pi, N)
-    z = np.random.uniform(0, L, N)
-
-    # Conversion a coordenadas cartesianas
-    x = r * np.cos(theta)
-    y = r * np.sin(theta)
-
-    # Arreglo con coordenadas XYZ en formato Nx3
-    s = np.vstack((x,y,z)).T.astype(np.float32)
-
-    return s
-
-#_____________________________________________________________________________________________________
-#               2] Tratamiento del campo electrico calculado con LaPlace
-
-E_Field_File = np.load("data_files/Electric_Field_np.npy") # Archivo numpy con E calculado
-
-"""
-    Interpolator_Electric_Field:
-
-    Mediante E_Field_File que es el campo electrico generado con LaPlace, se crean 4 variables de
-    interpolacion las cuales son Ex_values, Ey_values, Ez_values y tree. Estas ultima es creada 
-    con cKDTree, un metodo desarrollado precisamente para encontrar el valor numerico de un campo 
-    en un punto arbitrario de su espacio. Con esto nos sera sencillo asociar un valor de campo 
-    electrico a una particula en el punto (X,Y,Z) cualquiera.
-
-    Interpolate_E:
-
-    Recibe la posicion [s] de una particula y en base a las 4 variables de interpolacion retorna
-    un valor E correspondiente al campo electrico asociado a esa particula
-
-    E_Field_File -> Campo electrico resultado de Laplace_E_Solution.py
-"""
-
-def Interpolator_Electric_Field(E_Field_File):
-
-    # Extrayendo las coordenadas espaciales(X,Y,Z) del campo electrico
-    points = E_Field_File[:, :3]
-
-    # Extrayendo los valores del campo electrico en cada eje coordenado
-    Ex_values = E_Field_File[:, 3]  # Campo Ex
-    Ey_values = E_Field_File[:, 4]  # Campo Ey
-    Ez_values = E_Field_File[:, 5]  # Campo Ez
-
-    # Creando la funcion de interpolacion para cada campo electrico(Ex, Ey, Ez)
-    tree = cKDTree(points)
-
-    return tree, Ex_values, Ey_values, Ez_values
-
-def Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s):
-
-    # Busca el indice(idx) del campo electrico correspondiente al punto [s]
-    _, idx = tree.query(s)
-
-    # Obtener los valores de Ex, Ey, Ez segun el indice [idx]
-    Ex = Ex_values[idx]
-    Ey = Ey_values[idx]
-    Ez = Ez_values[idx]
-
-    # retorna el campo electrico en un solo vector/matriz transpuesto
-    return np.vstack((Ex, Ey, Ez)).T 
-
-#_____________________________________________________________________________________________________
-#               3] Parámetros de simulación
-
-N = 100000 # Número de partículas
-dt = 0.03  # Delta de tiempo
-q_m = 1.0  # Valor Carga/Masa
-m = 2.18e-25
-
-#Lectura de parametro geometricos (Archivo txt)
+# --------------------------------------------------------------------------------
+# Lectura de geometría
 def leer_datos_archivo(ruta_archivo):
     datos = {}
     with open(ruta_archivo, "r") as archivo:
         for linea in archivo:
-            # Verificamos que la línea contenga ':'
             if ":" in linea:
                 clave, valor = linea.split(":", maxsplit=1)
-                # Limpiamos espacios
                 clave = clave.strip()
                 valor = valor.strip()
-                # Almacenar en el diccionario (conversión a entero o float)
                 datos[clave] = float(valor)
     return datos
-ruta = "data_files/geometry_parameters.txt"
-info = leer_datos_archivo(ruta)
 
-Rin = info.get("radio_interno",0) # Radio interno del cilindro hueco
-Rex = info.get("radio_externo",0) # Primer radio externo del cilindro hueco
-L = info.get("profundidad",0) # Longitud del cilindro
+info = leer_datos_archivo("data_files/geometry_parameters.txt")
+Rin = info.get("radio_interno", 0)
+Rex = info.get("radio_externo", 0)
+L   = info.get("profundidad", 0)
+h = info.get("lado_cubo", 0)
 
-tree, Ex_values, Ey_values, Ez_values = Interpolator_Electric_Field(E_Field_File)  # Campo eléctrico y su interpolador
-B0 = 5.0  # Magnitud del campo magnético radial
+Nr = Rex
+Nz = L
+r_array = np.linspace(Rin, Rex, Nr)
+z_array = np.linspace(0, L, Nz)
 
-#_____________________________________________________________________________________________________
-#               4] Inicialización de partículas (posición y velocidad)
+# n_e(r,z) => un array (Nr, Nz)
+n_e = np.zeros((Nr, Nz), dtype=float)
 
-s = initialize_particles(N, Rin=Rin, Rex=Rex, L=L)  # Posiciones iniciales
 
-# Definicion de velocidades con limites en cada eje
-Vx_min, Vx_max = -5.0, 5.0
-Vy_min, Vy_max = -0.5, 0.5
-Vz_min, Vz_max = 0.0, 100.0
+def update_electron_density(n_e, r_array, z_array, dt, t):
+    """
+    Ejemplo simplificado de actualización de n_e sin resolver PDE real.
+    Solo para ilustrar la estructura.
+    """
+    Nr, Nz = n_e.shape
+    for ir in range(Nr):
+        for iz in range(Nz):
+            r = r_array[ir]
+            z = z_array[iz]
+            # Ejemplo: incrementamos algo en la región interior y
+            # reducimos en la pared, de forma ficticia
+            if r < (Rex * 0.7):
+                n_e[ir, iz] += 5e14 * dt  # "crece" un poco
+            else:
+                n_e[ir, iz] *= 0.99      # "disminuye" un poco
+    # Podrías imponer boundaries, etc.
+    return n_e
 
-v_x = Vx_min + (Vx_max - Vx_min) * np.random.rand(N).astype(np.float32)
-v_y = Vy_min + (Vy_max - Vy_min) * np.random.rand(N).astype(np.float32)
-v_z = Vz_min + (Vz_max - Vz_min) * np.random.rand(N).astype(np.float32)
 
-v = np.vstack((v_x, v_y, v_z)).T  # Juntamos los valores en una matriz Nx3
+# --------------------------------------------------------------------------------
+# Inicializar partículas en un dominio cilíndrico
+def initialize_particles(N, Rin, Rex, L):
+    r = np.sqrt(np.random.uniform(Rin**2, Rex**2, N))
+    theta = np.random.uniform(0, 2*np.pi, N)
+    z = np.random.uniform(0, L, N)
 
-#_____________________________________________________________________________________________________
-#               5] Parametros de simulacion
-
-timesteps = 500  # Número de frames de la animación
-
-# Inicializar almacenamiento de datos
-all_positions = np.zeros((timesteps, N, 3), dtype=np.float32)
-
-#_____________________________________________________________________________________________________
-#               6] Función para mover partículas
-
-# Se obtiene el campo electrico(por ahora constante)
-E = Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s)
-
-# Se pasan las variables (s,v,E) a la GPU
-s_gpu = np.array(s)
-v_gpu = np.array(v)
-E_gpu = np.array(E)
-
-Temp = []
-
-def move_particles(s, v, dt, q_m, E, B0):
-
-    # Definira el rango en el campo magnetico tiene valor [50,60] en Z
-    mask_B = (s[:, 2] >= 50) & (s[:,2] <= 60)
-
-    # Calcular el radio en el plano XY
-    r = np.sqrt((s[:, 0])**2 + (s[:, 1])**2) + 1e-6
-
-    # Inicializando vectores de campo magnetico
-    Bx, By, Bz = np.zeros_like(s[:, 0]), np.zeros_like(s[:, 0]), np.zeros_like(s[:, 0])
-    
-    # Campo magnético radial hacia el centro del cilindro
-    Bx[mask_B] = -B0 * ((s[mask_B, 0]) / r[mask_B])
-    By[mask_B] = -B0 * ((s[mask_B, 1]) / r[mask_B])
-
-    # Crear la matriz del campo magnético para todas las partículas
-    B = np.column_stack((Bx, By, Bz))  
-
-    # Cálculo optimizado de la Fuerza de Lorentz
-    F_Lorentz = np.cross(v, B)
-
-    # Actualizacion de velocidad
-    v += q_m * (E + F_Lorentz) * dt
-
-    # Actualizacion de posicion
-    s += v * dt
-
-    # Mascara para vigilar colisiones en el cilindro
-    r_collision = np.sqrt(s[:, 0]**2 + s[:, 1]**2)
-    mask_collision = ((r_collision >= (Rex-1)) | (r_collision <= (Rin+1))) & (s[:, 2] > 0) & (s[:, 2] <= L)
-    num_collisions = int(np.sum(mask_collision).item()) 
-
-    if num_collisions > 0:
-        # Velocidad antes de la colisión
-        v_before = v[mask_collision]
-
-        # Vector normal unitario (radial hacia afuera)
-        normal_vector = np.zeros_like(v_before)
-        normal_vector[:, 0] = s[mask_collision, 0] / r_collision[mask_collision]
-        normal_vector[:, 1] = s[mask_collision, 1] / r_collision[mask_collision]
-        normal_vector[:, 2] = 0  # componente axial es cero para pared lateral cilindrica
-
-        # Proyección de la velocidad en la dirección normal
-        v_normal = np.sum(v_before * normal_vector, axis=1, keepdims=True) * normal_vector
-        v_tangencial = v_before - v_normal
-
-        # Calcular velocidades despues de colision (con α dado por tu compañero)
-        alpha = 0.9  # ejemplo, recibelo de tu compañero o definelo externamente
-        v_after_collision = v_tangencial - alpha * v_normal
-
-        # Calculo de energia cinetica antes y despues
-        E_before = 0.5 * m * np.sum(v_before**2, axis=1)
-        E_after = 0.5 * m * np.sum(v_after_collision**2, axis=1)
-        delta_E = E_before - E_after  # Esto es lo que envias al termostato
-
-        lambda_value, temp_aux = aplicar_termostato(delta_E, num_collisions, dt, 100, 300, 8.617e-23)
-        v_final_mag = v_before * lambda_value.reshape(-1, 1)
-        Temp.append(temp_aux)
-        # (Aquí envías delta_E a tu compañero y recibes la nueva magnitud |v_final|)
-        # Ejemplo simulado:
-        v_final_mag = np.sqrt(np.sum(v_after_collision**2, axis=1))  # Temporal
-        # Real: v_final_mag = funcion_termostato(delta_E)
-
-        # Corriges dirección (mantienes dirección calculada pero ajustas magnitud recibida)
-        v_direction = v_after_collision / np.linalg.norm(v_after_collision, axis=1, keepdims=True)
-        v_corrected = v_direction * v_final_mag[:, np.newaxis]
-
-        # Actualizas velocidad tras la colisión
-        v[mask_collision] = v_corrected
-
-    # Mascara que define los limites de simulacion [0,0,0] ^ [120,120,180]
-    mask_out = (s[:, 0] < -60) | (s[:, 0] > 60) | \
-               (s[:, 1] < -60) | (s[:, 1] > 60) | \
-               (s[:, 2] < 0) | (s[:, 2] > 180)
-    
-    # Cantidad de particulas que deben re ingresar al sistema
-    num_reinsert = int(np.sum(mask_out).item()) 
-    
-    if num_reinsert > 0:
-
-        # Generamos nuevas posiciones en el cilindro en (X,Y)
-        r_new = np.sqrt(np.random.uniform(Rin**2, Rex**2, num_reinsert))
-        theta_new = np.random.uniform(0, 2*np.pi, num_reinsert)
-
-        # Pasamos a coordenadas cartesianas
-        x_new = r_new * np.cos(theta_new)
-        y_new = r_new * np.sin(theta_new)
-        z_new = np.full(num_reinsert, 1, dtype=np.float32)  # Z siempre en 180
-
-        # Asignamos las nuevas posiciones
-        s[mask_out, 0] = x_new
-        s[mask_out, 1] = y_new
-        s[mask_out, 2] = z_new
-
-        # Asignamos nuevas velocidades aleatorias
-        v_x_new = Vx_min + (Vx_max - Vx_min) * np.random.rand(num_reinsert).astype(np.float32)
-        v_y_new = Vy_min + (Vy_max - Vy_min) * np.random.rand(num_reinsert).astype(np.float32)
-        v_z_new = Vz_min + (Vz_max - Vz_min) * np.random.rand(num_reinsert).astype(np.float32)
-
-        # Juntamos las velocidades en una matriz (num_reinsert, 3)
-        v_new = np.column_stack((v_x_new, v_y_new, v_z_new))
-
-        # Asignamos las nuevas velocidades a las partículas reinsertadas
-        v[mask_out] = v_new
-    
-    # Retornamos la posicion espacial de las particulas para ser almacenadas
+    x = r * np.cos(theta)
+    y = r * np.sin(theta)
+    s = np.vstack((x,y,z)).T.astype(np.float32)
     return s
 
-#_____________________________________________________________________________________________________
-#               7] Simulacion y proceso de renderizado
+# --------------------------------------------------------------------------------
+# Interpoladores de campo E y B fijos (ya calculados)
+E_Field_File = np.load("data_files/Electric_Field_np.npy")
+M_Field_File = np.load("data_files/Magnetic_Field_np.npy")
 
-# Ejecutar la simulación y guardar datos con barra de progreso
-print("Ejecutando simulación y guardando datos...")
-for t in tqdm(range(timesteps), desc="Progreso"):
+def Interpolator_Electric_Field(E_Field_File):
+    points = E_Field_File[:, :3]
+    Ex_values = E_Field_File[:, 3]
+    Ey_values = E_Field_File[:, 4]
+    Ez_values = E_Field_File[:, 5]
+    tree = cKDTree(points)
+    return tree, Ex_values, Ey_values, Ez_values
 
-    # Funcion de movimiento
-    s = move_particles(s_gpu, v_gpu, dt, q_m, E_gpu, B0)
+def Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s):
+    # s: Nx3
+    _, idx = tree.query(s)  # query con NumPy
+    Ex = Ex_values[idx]
+    Ey = Ey_values[idx]
+    Ez = Ez_values[idx]
+    return np.vstack((Ex, Ey, Ez)).T
 
-    # Conversion de [s] a datos de CPU(numpy) nuevamente
+def Interpolator_Magnetic_Field(M_Field_File):
+    points = M_Field_File[:, :3]
+    Mx_values = M_Field_File[:, 3]
+    My_values = M_Field_File[:, 4]
+    Mz_values = M_Field_File[:, 5]
+    tree = cKDTree(points)
+    return tree, Mx_values, My_values, Mz_values
 
-    # Guardar la posición de las partículas en este frame
-    all_positions[t] = s
+def Interpolate_M(treeM, Mx_values, My_values, Mz_values, s):
+    _, idx = treeM.query(s)  # NumPy, no .get()
+    Mx = Mx_values[idx]
+    My = My_values[idx]
+    Mz = Mz_values[idx]
+    return np.vstack((Mx, My, Mz)).T
 
-# Guardar el archivo con todas las posiciones simuladas
-np.save("data_files/particle_simulation.npy", all_positions)
-print("Simulación guardada exitosamente en 'particle_simulation.npy'")
+treeE, Ex_vals, Ey_vals, Ez_vals = Interpolator_Electric_Field(E_Field_File)
+treeM, Mx_vals, My_vals, Mz_vals = Interpolator_Magnetic_Field(M_Field_File)
 
-import mplcursors
+# --------------------------------------------------------------------------------
+# Parámetros
+N = 10000
+dt = 0.00007
+q_m = 1.0
+m_ion = 2.18e-25
 
-N_graph = len(Temp)
-tiempo = np.arange(N_graph) * dt
+timesteps = 500
 
-fig, ax = plt.subplots(figsize=(9, 5))
-line, = ax.plot(tiempo, Temp, marker='o', markersize=3, linewidth=1.5)
+# Rango de velocidades iniciales
+Vx_min, Vx_max =  0.0, 0.0
+Vy_min, Vy_max =  0.0, 0.0
+Vz_min, Vz_max = 75.0, 100.0
 
-ax.set_xlabel('Tiempo [s]')
-ax.set_ylabel('Temperatura [K]')
-ax.set_title('Temperatura vs Tiempo')
-ax.grid(True)
+# --------------------------------------------------------------------------------
+# Partículas iniciales (iones)
+s = initialize_particles(N, Rin, Rex, L)
+v_x = np.random.uniform(Vx_min, Vx_max, N).astype(np.float32)
+v_y = np.random.uniform(Vy_min, Vy_max, N).astype(np.float32)
+v_z = np.random.uniform(Vz_min, Vz_max, N).astype(np.float32)
+v = np.column_stack((v_x, v_y, v_z))
 
-# Activar cursor interactivo para mostrar valores
-cursor = mplcursors.cursor(line, hover=True)
+# Etiquetas iniciales: -1 a todas para indicar que nacieron en "t=-1"
+label = np.full(N, -1, dtype=np.int32)
 
-# Formato del texto emergente
-@cursor.connect("add")
-def on_hover(sel):
-    sel.annotation.set(text=f'Tiempo: {sel.target[0]:.2f}s\nTemperatura: {sel.target[1]:.4f} K')
+# --------------------------------------------------------------------------------
+# Definir las funciones de densidad y frecuencia de ionización (electrones + neutrales)
+kB = 1.380649e-23
+qe = 1.60217662e-19
+me = 9.10938356e-31
 
-plt.tight_layout()
-plt.show()
+ne0 = 1e17
+nn0 = 1e19
+Te0 = 10.0
+
+def electron_density(x, y, z):
+    return ne0
+
+def neutral_density(x, y, z):
+    return nn0
+
+def electron_temperature(x, y, z):
+    return Te0
+
+def sigma_ionization(e_eV):
+    return 1e-19  # valor ficticio
+
+def ionization_frequency(x, y, z):
+    Te_eV = electron_temperature(x,y,z)
+    nn_local = neutral_density(x,y,z)
+    Te_J = Te_eV * qe
+    # velocidad electron ~ sqrt(8*kB*Te / (pi*m_e))  -- ojo con factor de conversión eV->J
+    v_e = math.sqrt( (8.0 * kB * Te_J)/(math.pi * me) )
+    sigma_ion = sigma_ionization(Te_eV)
+    return nn_local * sigma_ion * v_e
+
+# --------------------------------------------------------------------------------
+# Ionización por muestreo de 1000 puntos
+def ionize_particles(dt):
+    # muestreamos Ntest puntos
+    Ntest = 1000
+    # Volumen cilíndrico
+    volume = math.pi * (Rex**2 - Rin**2) * L
+
+    r_rand = np.sqrt(np.random.uniform(Rin**2, Rex**2, Ntest))
+    theta_rand = np.random.uniform(0, 2*np.pi, Ntest)
+    z_rand = np.random.uniform(0, L, Ntest)
+
+    x_test = r_rand * np.cos(theta_rand)
+    y_test = r_rand * np.sin(theta_rand)
+    z_test = z_rand
+
+    new_positions = []
+    new_velocities = []
+
+    for i in range(Ntest):
+        xx, yy, zz = x_test[i], y_test[i], z_test[i]
+        nu_loc = ionization_frequency(xx, yy, zz)
+        P_ion = 1.0 - np.exp(-nu_loc * dt)
+        if np.random.rand() < P_ion:
+            # se crea 1 ión
+            new_positions.append([xx, yy, zz])
+            new_velocities.append([0.0, 0.0, 0.0])
+
+    if len(new_positions) == 0:
+        return None, None
+
+    new_positions = np.array(new_positions, dtype=np.float32)
+    new_velocities = np.array(new_velocities, dtype=np.float32)
+    return new_positions, new_velocities
+
+# --------------------------------------------------------------------------------
+# Función para mover partículas (E, B fijos) + colisiones con paredes + reinsertar
+def move_particles(s, v, dt, q_m):
+    """
+    Mover partículas con E y B fijos.
+    NO se hace la ionización aquí, sino en la función 'ionize_particles'.
+    Si quieres meter colisión ión--neutral aquí, adelante.
+    """
+    # Interpolar E y B
+    E = Interpolate_E(treeE, Ex_vals, Ey_vals, Ez_vals, s)
+    B = Interpolate_M(treeM, Mx_vals, My_vals, Mz_vals, s)
+
+    # Integrador BORIS (recomendable con B),
+    # pero para simplificar, lo haremos con el naive E:
+    # v <- v + (q/m) * E * dt
+    v += q_m * E * dt
+
+    # O si quisieras un integrador decente, implementa BORIS aquí
+
+    # Actualizar posición
+    s += v * dt
+
+    # Colisión con paredes
+    r = np.sqrt(s[:,0]**2 + s[:,1]**2)
+    mask_wall = ((r>=Rex) | (r<=Rin)) & (s[:,2]>=0) & (s[:,2]<=L)
+    if np.any(mask_wall):
+        handle_wall_collisions(s, v, mask_wall)
+
+    # Reinsertar
+    mask_out = (s[:,0]<-3*Rex)|(s[:,0]>3*Rex)|(s[:,1]<-3*Rex)|(s[:,1]>3*Rex)|(s[:,2]<0)|(s[:,2]>3*Rex)
+    if np.any(mask_out):
+        reinsert_particles(s, v, mask_out)
+
+    return s, v
+
+def handle_wall_collisions(s, v, mask_wall):
+    # Rebote inelástico con coef. alpha
+    alpha = 0.9
+    r = np.sqrt(s[:,0]**2 + s[:,1]**2)
+    normal = np.zeros_like(s)
+    normal[:,0] = s[:,0]/(r+1e-14)
+    normal[:,1] = s[:,1]/(r+1e-14)
+
+    vw = v[mask_wall]
+    nw = normal[mask_wall]
+
+    v_normal = np.sum(vw*nw, axis=1, keepdims=True)*nw
+    v_tang = vw - v_normal
+    v_after = v_tang - alpha*v_normal
+
+    v[mask_wall] = v_after
+
+    # Empujar partícula a la frontera
+    s[mask_wall,0] -= (r[mask_wall]-Rex)*nw[:,0]
+    s[mask_wall,1] -= (r[mask_wall]-Rex)*nw[:,1]
+
+def reinsert_particles(s, v, mask_out):
+    num_out = np.count_nonzero(mask_out)
+    r_new = np.sqrt(np.random.uniform(Rin**2, Rex**2, num_out))
+    th_new = np.random.uniform(0, 2*np.pi, num_out)
+    x_new = r_new*np.cos(th_new)
+    y_new = r_new*np.sin(th_new)
+    z_new = np.zeros(num_out, dtype=np.float32)
+
+    s[mask_out,0] = x_new
+    s[mask_out,1] = y_new
+    s[mask_out,2] = z_new
+
+    # Velocidades aleatorias
+    v_x_new = np.random.uniform(Vx_min, Vx_max, num_out).astype(np.float32)
+    v_y_new = np.random.uniform(Vy_min, Vy_max, num_out).astype(np.float32)
+    v_z_new = np.random.uniform(Vz_min, Vz_max, num_out).astype(np.float32)
+    v_new = np.column_stack((v_x_new,v_y_new,v_z_new))
+    v[mask_out] = v_new
+
+# --------------------------------------------------------------------------------
+# Bucle principal
+positions_list = []  # para guardar la posición de cada timestep
+velocities_list = []
+labels_list = []
+
+for t in tqdm(range(timesteps), desc="Simulando"):
+
+    # (1) Mover iones
+    s, v = move_particles(s, v, dt, q_m)
+
+    # (2) Generar iones nuevos por colisión electron--neutral
+    new_pos, new_vel = ionize_particles(dt)
+
+    if new_pos is not None:
+        # Cantidad de partículas nuevas
+        newN = new_pos.shape[0]
+
+        # 2.1) Apilar posiciones y velocidades
+        s = np.vstack((s, new_pos))
+        v = np.vstack((v, new_vel))
+
+        # 2.2) Crear etiquetas para las nuevas partículas
+        new_label = np.full(newN, t, dtype=np.int32)  # nacen en timestep t
+        label = np.hstack((label, new_label))
+
+    # (3) Guardar en listas (o arrays)
+    positions_list.append(s.copy())
+    velocities_list.append(v.copy())
+    labels_list.append(label.copy())
+
+with open("data_files/particle_simulation.pkl", "wb") as f:
+    pickle.dump({
+        "positions": positions_list,
+        "velocities": velocities_list,
+        "labels": labels_list
+    }, f)
+# Ejemplo de guardado final
+# Ojo, s y v cambian de tamaño en cada timestep
+# Podrías picklear la lista, o guardarlo como .npy en un for:
+# np.save("data_files/particle_sim_step%d.npy"%t, s)
