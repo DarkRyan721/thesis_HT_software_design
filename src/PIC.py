@@ -38,7 +38,7 @@ def initialize_particles(N, Rin, Rex, L):
 #               2] Tratamiento del campo electrico calculado con LaPlace
 
 E_Field_File = np.load("data_files/Electric_Field_np.npy") # Archivo numpy con E calculado
-M_Field_File = np.load("data_files/Magnetic_Field_np.npy")
+M_Field_File = np.load("data_files/Magnetic_Field_np.npy") # Archivo numpy con M calculado
 
 """
     Interpolator_Electric_Field:
@@ -184,6 +184,7 @@ E_gpu = cp.array(E)
 Temp = []
 
 def move_particles(s, v, dt, q_m, E, B0):
+
     # # Definira el rango en el campo magnetico tiene valor [0,0.02] en Z
     # mask_B = (s[:, 2] >= 0) & (s[:,2] <= 0.02)
 
@@ -214,7 +215,7 @@ def move_particles(s, v, dt, q_m, E, B0):
 
     # Mascara para vigilar colisiones en el cilindro
     r_collision = cp.sqrt(s[:, 0]**2 + s[:, 1]**2)
-    mask_collision = ((r_collision >= (Rex-1)) | (r_collision <= (Rin+1))) & (s[:, 2] > 0) & (s[:, 2] <= L)
+    mask_collision = ((r_collision >= (Rex)) | (r_collision <= (Rin))) & (s[:, 2] > 0) & (s[:, 2] <= L)
     num_collisions = int(cp.sum(mask_collision).item()) 
 
     if num_collisions > 0:

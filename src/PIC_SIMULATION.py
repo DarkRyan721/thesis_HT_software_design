@@ -26,8 +26,8 @@ centro_xy = (0, 0)
 z_inicio = 0
 z_final = 0.02
 L = 0.02
-Rext = 0.1
-Rint = 0.056
+Rext = 0.05
+Rint = 0.023
 ancho_plano = 0.2
 espesor_plano = 0.001
 
@@ -59,7 +59,7 @@ def Geometries_creation():
 
     plotter = pv.Plotter()
     plotter.set_background("black")
-    #plotter.add_mesh(cilindro, color="#656565", opacity=1, show_edges=False, specular=1.0, specular_power=30, diffuse=0.8, ambient=0.2)
+    plotter.add_mesh(cilindro, color="#656565", opacity=1, show_edges=False, specular=1.0, specular_power=30, diffuse=0.8, ambient=0.2)
     #plotter.add_mesh(plano_solid, color="gray", opacity=1, specular=1.0, specular_power=30, diffuse=0.8, ambient=0.3)
     #plotter.add_mesh(plano_hueco, color="gray", opacity=1, specular=1.0, specular_power=30, diffuse=0.8, ambient=0.3)
     # plotter.add_mesh(cilindro_1, color="#CD7F32", opacity=1, specular=1.0, specular_power=30, diffuse=0.8, ambient=0.3)
@@ -78,7 +78,7 @@ plotter = Geometries_creation()
 #           4] Configuracion de la camara
 
 # Configurar cámara
-plotter.camera_position = [(-5*Rext, 2.5*Rext, 4*Rext), (0, 0, 0), (0, 1, 0)]
+plotter.camera_position = [(-5*Rext, 2.5*Rext, 5*Rext), (0, 0, 0), (0, 1, 0)]
 plotter.camera.view_angle = 60  # Gran angular
 
 # Iluminacion adicional
