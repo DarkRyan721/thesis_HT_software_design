@@ -239,6 +239,7 @@ class B_Field():
         contour_levels = np.linspace(np.min(B_values[B_values > 0]), np.max(B_values), num_levels)
 
         fig, ax = plt.subplots(figsize=(10, 8))
+        fig.patch.set_facecolor('#131313')
 
         im = ax.imshow(B_values, cmap='plasma', norm=colors.LogNorm(vmin=np.max([B_values.min(), 1e-6]), vmax=B_values.max()),
                        extent=[eje_x.min(), eje_x.max(), eje_y.min(), eje_y.max()], origin='lower')
@@ -248,11 +249,20 @@ class B_Field():
 
         # Agregar barra de color con escala logarítmica
         cbar = plt.colorbar(im, ax=ax, label="|B| (Escala Log)")
+        cbar.ax.set_facecolor('#283747') 
+        cbar.ax.yaxis.set_tick_params(color='white')  # Color de las marcas de la barra
+        plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='white')
+        cbar.set_label('|B| (Escala Log)', color='white') 
 
         # Etiquetas y título
         ax.set_xlabel("Y-axis")
         ax.set_ylabel("Z-axis")
         ax.set_title("Magnitud del Campo Magnético (Escala Log)")
+        ax.title.set_color('white')  # Color del título
+        ax.xaxis.label.set_color('white')  # Color de la etiqueta del eje X
+        ax.yaxis.label.set_color('white')  # Color de la etiqueta del eje Y
+        ax.tick_params(axis='x', colors='white')  # Color de las marcas del eje X
+        ax.tick_params(axis='y', colors='white')  # Color de las marcas del eje Y
 
         ax.set_aspect('auto')
 
@@ -263,64 +273,39 @@ class B_Field():
         tolerance = 0.001
 
         if XY == True:
-            mask = np.abs(S[:,2] - Plane_Value) < tolerance
-            X_filtered = S[:,0][mask]
-            Y_filtered = S[:,1][mask]
-            Bx_filtered = B[:,0][mask]
-            By_filtered = B[:,1][mask]
-            Bz_filtered = B[:,2][mask]
+            X = S[:, 0]  # Coordenadas X originales
+            Y = S[:, 1]  # Coordenadas Y originales
 
-            xi = np.linspace(min(X_filtered), max(X_filtered), resolution)
-            yi = np.linspace(min(Y_filtered), max(Y_filtered), resolution)
-            eje_x, eje_y = np.meshgrid(xi, yi)
-
-            B_ejeX = griddata((X_filtered, Y_filtered), Bx_filtered, (eje_x, eje_y), method='cubic')
-            B_ejeY = griddata((X_filtered, Y_filtered), By_filtered, (eje_x, eje_y), method='cubic')
+            Bx = B[:, 0]  # Componente X del campo magnético
+            By = B[:, 1]  # Componente Y del campo magnético
         elif ZY == True:
-            mask = np.abs(S[:,0] - Plane_Value) < tolerance
-            X_filtered = S[:,0][mask]
-            Y_filtered = S[:,1][mask]
-            Z_filtered = S[:,2][mask]
-            Bx_filtered = B[:,0][mask]
-            By_filtered = B[:,1][mask]
-            Bz_filtered = B[:,2][mask]
-
-            zi = np.linspace(min(Z_filtered), max(Z_filtered), resolution)
-            yi = np.linspace(min(Y_filtered), max(Y_filtered), resolution)
-            eje_x, eje_y = np.meshgrid(zi, yi)
-
-            B_ejeX = griddata((Z_filtered, Y_filtered), Bz_filtered, (eje_x, eje_y), method='cubic')
-            B_ejeY = griddata((Z_filtered, Y_filtered), By_filtered, (eje_x, eje_y), method='cubic')
+            X = S[:, 2]  # Coordenadas X originales
+            Y = S[:, 1]  # Coordenadas Y originales
+            Bx = B[:, 2]  # Componente X del campo magnético
+            By = B[:, 1]  # Componente Y del campo magnético
         elif ZX==True:
-            mask = np.abs(S[:,1] - Plane_Value) < tolerance
-            X_filtered = S[:,0][mask]
-            Y_filtered = S[:,1][mask]
-            Z_filtered = S[:,2][mask]
-            Bx_filtered = B[:,0][mask]
-            By_filtered = B[:,1][mask]
-            Bz_filtered = B[:,2][mask]
-
-            zi = np.linspace(min(Z_filtered), max(Z_filtered), resolution)
-            xi = np.linspace(min(X_filtered), max(X_filtered), resolution)
-            eje_x, eje_y = np.meshgrid(zi, xi)
-
-            B_ejeX = griddata((Z_filtered, X_filtered), Bz_filtered, (eje_x, eje_y), method='cubic')
-            B_ejeY = griddata((Z_filtered, X_filtered), Bx_filtered, (eje_x, eje_y), method='cubic')
+            X = S[:, 2]  # Coordenadas X originales
+            Y = S[:, 0]  # Coordenadas Y originales
+            Bx = B[:, 2]  # Componente X del campo magnético
+            By = B[:, 0]  # Componente Y del campo magnético
         else:
             print("No hay plano seleccionado")
             return
         
-        X = S[:, 0]  # Coordenadas X originales
-        Y = S[:, 1]  # Coordenadas Y originales
-        Bx = B[:, 0]  # Componente X del campo magnético
-        By = B[:, 1]  # Componente Y del campo magnético
+        B_mag = np.sqrt(Bx**2 + By**2)
 
-        max_arrow_length = 0.001  # Longitud máxima de las flechas
+        max_arrow_length = 0.001
         Bx_limited = np.clip(Bx, -max_arrow_length, max_arrow_length)
         By_limited = np.clip(By, -max_arrow_length, max_arrow_length)
 
+        # Crear la figura y el eje
         fig, ax = plt.subplots(figsize=(8, 8))
-        ax.quiver(X, Y, Bx_limited, By_limited, angles='xy', scale_units='xy', scale=1, color='b')
+
+        # Graficar las flechas con un mapa de color
+        quiver = ax.quiver(X, Y, Bx_limited, By_limited, B_mag, angles='xy', scale_units='xy', scale=0.5, cmap='plasma')
+
+        # Agregar una barra de color para la magnitud
+        cbar = plt.colorbar(quiver, ax=ax, label="Magnitud del Campo Magnético")
 
         # Etiquetas y título
         ax.set_xlabel('X [m]')
@@ -333,6 +318,7 @@ class B_Field():
         circulo1 = plt.Circle((0, 0), 0.056/2, fill=False, linewidth=2)
         ax.add_patch(circulo1)
 
+        # Mostrar la figura
         plt.show()
 
 E_File = np.load("data_files/Electric_Field_np.npy")
@@ -344,4 +330,7 @@ Z = spatial_coords[:, 2]
 
 B = B_Field()
 
-B.color_map_B(S=spatial_coords, Plane_Value=B.L, ZY=True, resolution=100, num_contorn=30, Solenoid_Center=False, All_Solenoids=True)
+B_values = B.Total_Magnetic_Field(S=spatial_coords)
+
+#B.color_map_B(S=spatial_coords, Plane_Value=B.L, ZY=True, resolution=100, num_contorn=30, Solenoid_Center=True, All_Solenoids=False)
+B.B_Field_Lines(B=B_values, S=spatial_coords, ZY=True)

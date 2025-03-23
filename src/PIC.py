@@ -75,7 +75,7 @@ def Interpolator_Electric_Field(E_Field_File):
 def Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s):
 
     # Busca el indice(idx) del campo electrico correspondiente al punto [s]
-    _, idx = tree.query(s)
+    _, idx = tree.query(s.get())
 
     # Obtener los valores de Ex, Ey, Ez segun el indice [idx]
     Ex = Ex_values[idx]
@@ -116,9 +116,9 @@ def Interpolate_M(tree, Mx_values, My_values, Mz_values, s):
 #_____________________________________________________________________________________________________
 #               3] Parámetros de simulación
 
-N = 100000 # Número de partículas
-dt = 0.00007  # Delta de tiempo
-q_m = 1.0  # Valor Carga/Masa
+N = 1000000 # Número de partículas
+dt = 0.0000002  # Delta de tiempo
+q_m = 7.35e5 # Valor Carga/Masa
 m = 2.18e-25
 
 #Lectura de parametro geometricos (Archivo txt)
@@ -152,9 +152,9 @@ B0 = 1000  # Magnitud del campo magnético radial
 s = initialize_particles(N, Rin=Rin, Rex=Rex, L=L)  # Posiciones iniciales
 
 # Definicion de velocidades con limites en cada eje
-Vx_min, Vx_max = -0, 0
-Vy_min, Vy_max = -0, 0
-Vz_min, Vz_max = 75.0, 100.0
+Vx_min, Vx_max = -5, 5
+Vy_min, Vy_max = -5, 5
+Vz_min, Vz_max = 0.0, 100.0
 
 v_x = Vx_min + (Vx_max - Vx_min) * np.random.rand(N).astype(np.float32)
 v_y = Vy_min + (Vy_max - Vy_min) * np.random.rand(N).astype(np.float32)
@@ -174,16 +174,14 @@ all_positions = np.zeros((timesteps, N, 3), dtype=np.float32)
 #               6] Función para mover partículas
 
 # Se obtiene el campo electrico(por ahora constante)
-E = Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s)
 
 # Se pasan las variables (s,v,E) a la GPU
 s_gpu = cp.array(s)
 v_gpu = cp.array(v)
-E_gpu = cp.array(E)
 
 Temp = []
 
-def move_particles(s, v, dt, q_m, E, B0):
+def move_particles(s, v, dt, q_m, B0):
 
     # # Definira el rango en el campo magnetico tiene valor [0,0.02] en Z
     # mask_B = (s[:, 2] >= 0) & (s[:,2] <= 0.02)
@@ -201,11 +199,20 @@ def move_particles(s, v, dt, q_m, E, B0):
     # # Crear la matriz del campo magnético para todas las partículas
     # B = cp.column_stack((Bx, By, Bz))  
 
+    # mask_B = (s[:, 2] >= 0) & (s[:, 2] <= (1.1*L))
+    # B = Interpolate_M(tree_m, Mx_values, My_values, Mz_values, s[mask_B])
+
+    # F_Lorentz_filtered = cp.cross(v[mask_B], B)
+
+    # # Opcional: Asignar los resultados a un arreglo completo
+    # F_Lorentz = cp.zeros_like(v)
+    # F_Lorentz[mask_B] = F_Lorentz_filtered
+
     # # Cálculo optimizado de la Fuerza de Lorentz
-
-    # B = Interpolate_M(tree_m, Mx_values, My_values, Mz_values, s)
-
-    # F_Lorentz = cp.cross(v, B)
+    mask_E = (s[:, 2] >= 0) & (s[:, 2] <= L)  # Máscara para partículas en el rango [0, L] en x
+    E_filtered = Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s[mask_E])
+    E = cp.zeros_like(v)
+    E[mask_E] = E_filtered
 
     # Actualizacion de velocidad
     v += q_m * (E) * dt
@@ -309,7 +316,7 @@ print("Ejecutando simulación y guardando datos...")
 for t in tqdm(range(timesteps), desc="Progreso"):
 
     # Funcion de movimiento
-    s = move_particles(s_gpu, v_gpu, dt, q_m, E_gpu, B0)
+    s = move_particles(s_gpu, v_gpu, dt, q_m, B0)
 
     # Conversion de [s] a datos de CPU(numpy) nuevamente
     s_np = cp.asnumpy(s)
