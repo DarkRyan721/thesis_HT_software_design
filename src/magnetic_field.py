@@ -321,6 +321,11 @@ class B_Field():
         # Mostrar la figura
         plt.show()
 
+    def Save_B_Field(self, B):
+        np.save("data_files/Magnetic_Field_np.npy", B)
+        print("Archivo guardado")
+
+
 E_File = np.load("data_files/Electric_Field_np.npy")
 
 spatial_coords = E_File[:, :3]
@@ -330,7 +335,6 @@ Z = spatial_coords[:, 2]
 
 B = B_Field()
 
-B_values = B.Total_Magnetic_Field(S=spatial_coords)
+B_value = B.Total_Magnetic_Field(S=spatial_coords)
 
-#B.color_map_B(S=spatial_coords, Plane_Value=B.L, ZY=True, resolution=100, num_contorn=30, Solenoid_Center=True, All_Solenoids=False)
-B.B_Field_Lines(B=B_values, S=spatial_coords, ZY=True)
+#B.Save_B_Field(B=B_value)
