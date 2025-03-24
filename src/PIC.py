@@ -116,8 +116,8 @@ def Interpolate_M(tree, Mx_values, My_values, Mz_values, s):
 #_____________________________________________________________________________________________________
 #               3] Parámetros de simulación
 
-N = 1000000 # Número de partículas
-dt = 0.0000002  # Delta de tiempo
+N = 100000 # Número de partículas
+dt = 0.0000001  # Delta de tiempo
 q_m = 7.35e5 # Valor Carga/Masa
 m = 2.18e-25
 
@@ -152,9 +152,9 @@ B0 = 1000  # Magnitud del campo magnético radial
 s = initialize_particles(N, Rin=Rin, Rex=Rex, L=L)  # Posiciones iniciales
 
 # Definicion de velocidades con limites en cada eje
-Vx_min, Vx_max = -5, 5
-Vy_min, Vy_max = -5, 5
-Vz_min, Vz_max = 0.0, 100.0
+Vx_min, Vx_max = -0, 0
+Vy_min, Vy_max = -0, 0
+Vz_min, Vz_max = 0.0, 200.0
 
 v_x = Vx_min + (Vx_max - Vx_min) * np.random.rand(N).astype(np.float32)
 v_y = Vy_min + (Vy_max - Vy_min) * np.random.rand(N).astype(np.float32)
@@ -209,10 +209,12 @@ def move_particles(s, v, dt, q_m, B0):
     # F_Lorentz[mask_B] = F_Lorentz_filtered
 
     # # Cálculo optimizado de la Fuerza de Lorentz
-    mask_E = (s[:, 2] >= 0) & (s[:, 2] <= L)  # Máscara para partículas en el rango [0, L] en x
-    E_filtered = Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s[mask_E])
-    E = cp.zeros_like(v)
-    E[mask_E] = E_filtered
+    # mask_E = (s[:, 2] >= 0) & (s[:, 2] <= L)  # Máscara para partículas en el rango [0, L] en x
+    # E_filtered = Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s[mask_E])
+    # E = cp.zeros_like(v)
+    # E[mask_E] = E_filtered
+    E = Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s)
+    E = cp.array(E)
 
     # Actualizacion de velocidad
     v += q_m * (E) * dt

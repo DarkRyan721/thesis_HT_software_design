@@ -321,8 +321,10 @@ class B_Field():
         # Mostrar la figura
         plt.show()
 
-    def Save_B_Field(self, B):
-        np.save("data_files/Magnetic_Field_np.npy", B)
+    def Save_B_Field(self, B, S):
+        MagField_array = np.column_stack((S,B))
+        
+        np.save("data_files/Magnetic_Field_np.npy", MagField_array)
         print("Archivo guardado")
 
 
@@ -337,4 +339,4 @@ B = B_Field()
 
 B_value = B.Total_Magnetic_Field(S=spatial_coords)
 
-#B.Save_B_Field(B=B_value)
+B.Save_B_Field(B=B_value, S=spatial_coords)
