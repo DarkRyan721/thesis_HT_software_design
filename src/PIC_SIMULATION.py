@@ -97,7 +97,7 @@ plotter.add_light(light)
 particles = pv.PolyData(all_positions[0])
 
 # Añadir partículas al plotter
-particle_actor = plotter.add_mesh(particles, color='#74faf2', point_size=0.8, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
+particle_actor = plotter.add_mesh(particles, color='#74faf2', point_size=2.5, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
 plotter.add_text("\nHall Effect Thruster", position="upper_edge", color='white')
 
 # Callback de cierre de ventana

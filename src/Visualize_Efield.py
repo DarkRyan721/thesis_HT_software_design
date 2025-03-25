@@ -97,7 +97,7 @@ fig.add_trace(go.Cone(
     colorscale=[[0, 'yellow'], [1, 'yellow']],
     #colorscale='Plasma',
     sizemode="absolute",
-    sizeref=0.005,  # Ajustar tamaño de flechas
+    sizeref=0.001,  # Ajustar tamaño de flechas
     anchor="tip",
     showscale=False
 ))

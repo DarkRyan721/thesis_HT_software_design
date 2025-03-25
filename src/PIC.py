@@ -116,7 +116,7 @@ def Interpolate_M(tree, Mx_values, My_values, Mz_values, s):
 #_____________________________________________________________________________________________________
 #               3] Parámetros de simulación
 
-N = 100000 # Número de partículas
+N = 10000 # Número de partículas
 dt = 0.0000001  # Delta de tiempo
 q_m = 7.35e5 # Valor Carga/Masa
 m = 2.18e-25

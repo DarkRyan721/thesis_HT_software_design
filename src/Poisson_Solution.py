@@ -176,22 +176,29 @@ def main():
     #   - Por defecto, se aplican 10kV en las facetas con tag=3 (Gas_inlet)
     #   - 0V en las facetas con tag=4 (Thruster_outlet)
     # Puedes ajustar estos tags o valores según tu caso.
+    from ufl import sqrt
+
+    # Parámetros físicos
     epsilon_0 = 8.854e-12  # Permisividad del vacío
-    rho_value = -(1.62e-2)  # [C/m^3], por ejemplo
+    rho_value = -1.62e-2   # [C/m^3], carga total deseada (negativa si son electrones)
 
-    print(rho_value)
+    # Parámetros del anillo
+    R = 0.035      # radio medio del anillo [m]
+    z0 = 0.017     # posición axial del anillo [m]
+    sigma = 0.002  # ancho del anillo [m]
 
-    center = np.array([0.0, 0.0, 0.017])
-    sigma = 0.005
-
+    # Espacio funcional
     V = fem.functionspace(domain, ("CG", 1))
     x = SpatialCoordinate(domain)
 
-    gauss_expr = (rho_value / epsilon_0) * exp(-((x[0] - center[0])**2 + (x[1] - center[1])**2 + (x[2] - center[2])**2) / (2 * sigma**2))
+    # Gaussiana tipo anillo
+    r = sqrt(x[0]**2 + x[1]**2)
+    dist_sq = (r - R)**2 + (x[2] - z0)**2
+    ring_expr = (rho_value / epsilon_0) * exp(-dist_sq / (2 * sigma**2))
 
+    # Interpolar al espacio
     source_term = fem.Function(V)
-    fem.Expression(gauss_expr, V.element.interpolation_points())
-    source_term.interpolate(fem.Expression(gauss_expr, V.element.interpolation_points()))
+    source_term.interpolate(fem.Expression(ring_expr, V.element.interpolation_points()))
 
     phi_h = solve_potential(
         domain=domain,
