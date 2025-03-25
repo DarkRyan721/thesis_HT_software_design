@@ -84,7 +84,9 @@ def main():
 
     # 7) Definir E como ufl.Expression (depende de x).
     # Supongamos que E_field es un VEC CG(1):
-    V_vec = fem.VectorFunctionSpace(domain, ("CG", 1))
+    # V_vec = fem.VectorFunctionSpace(domain, ("CG", 1))
+    V_vec = fem.functionspace(domain, ("CG", 1, (domain.geometry.dim,)))
+
     E_fenics = fem.Function(V_vec)
 
     # Interpola a partir de datos => approach naive
@@ -109,7 +111,7 @@ def main():
     # L(v)     = ∫ f_expr * v * dx
     a = (
         D_e * ufl.inner(ufl.grad(n_e), ufl.grad(v))
-        - mu_e * ufl.inner(n_e * E_vec, ufl.grad(v))
+        - mu_e * ufl.inner(n_e * E_fenics, ufl.grad(v))
     ) * ufl.dx
 
     L = f_expr * v * ufl.dx
@@ -127,6 +129,16 @@ def main():
     dofs_walls = fem.locate_dofs_topological(V, domain.topology.dim-1, walls_facets)
     bc_walls = fem.dirichletbc(bc_value, dofs_walls)
     boundary_conditions.append(bc_walls)
+
+    # Ejemplo: Supón que en "Gas_inlet" (tag=3) n_e=1e17
+    bc_value_inlet = fem.Function(V)
+    bc_value_inlet.x.array[:] = 1e17
+
+    inlet_tag = 3
+    inlet_facets = facet_tags.indices[facet_tags.values==inlet_tag]
+    dofs_inlet = fem.locate_dofs_topological(V, domain.topology.dim-1, inlet_facets)
+    bc_inlet = fem.dirichletbc(bc_value_inlet, dofs_inlet)
+    boundary_conditions.append(bc_inlet)
 
     # 9) Armar y resolver el problema lineal
     problem = LinearProblem(a, L, bcs=boundary_conditions,
