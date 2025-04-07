@@ -116,8 +116,8 @@ def Interpolate_M(tree, Mx_values, My_values, Mz_values, s):
 #_____________________________________________________________________________________________________
 #               3] Parámetros de simulación
 
-N = 10000 # Número de partículas
-dt = 0.0000001  # Delta de tiempo
+N = 100000 # Número de partículas
+dt = 0.0000000000001  # Delta de tiempo
 q_m = 7.35e5 # Valor Carga/Masa
 m = 2.18e-25
 
@@ -275,7 +275,7 @@ def move_particles(s, v, dt, q_m, B0):
     # Mascara que define los limites de simulacion [0,0,0] ^ [120,120,180]
     mask_out = (s[:, 0] < -3*Rex) | (s[:, 0] > 3*Rex) | \
                (s[:, 1] < -3*Rex) | (s[:, 1] > 3*Rex) | \
-               (s[:, 2] < 0) | (s[:, 2] > 3*Rex)
+               (s[:, 2] < 0) | (s[:, 2] > 5*Rex)
     
     # Cantidad de particulas que deben re ingresar al sistema
     num_reinsert = int(cp.sum(mask_out).item()) 

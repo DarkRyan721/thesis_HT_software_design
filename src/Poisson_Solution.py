@@ -25,6 +25,24 @@ import matplotlib.tri as mtri
 import matplotlib.colors as colors
 import matplotlib.cm as cm
 
+def load_density(domain, filename="density_n0.npy"):
+    """
+    Carga la densidad de carga desde un archivo .npy y la asigna como un término fuente en Poisson.
+    """
+    # Cargar n0 desde .npy
+    n0_array = np.load(filename)
+    
+    # Espacio funcional en el dominio
+    V = fem.functionspace(domain, ("CG", 1))
+    
+    # Crear un objeto de función para el término fuente
+    source_term = fem.Function(V)
+    
+    # Asignar los valores desde n0_array
+    source_term.x.array[:] = n0_array
+    
+    return source_term
+
 
 def solve_potential(domain, facet_tags, volt_tag=3, ground_tag=4, Volt=300, source_term=None):
     """
@@ -176,29 +194,31 @@ def main():
     #   - Por defecto, se aplican 10kV en las facetas con tag=3 (Gas_inlet)
     #   - 0V en las facetas con tag=4 (Thruster_outlet)
     # Puedes ajustar estos tags o valores según tu caso.
-    from ufl import sqrt
+    # from ufl import sqrt
 
-    # Parámetros físicos
-    epsilon_0 = 8.854e-12  # Permisividad del vacío
-    rho_value = -1.62e-2   # [C/m^3], carga total deseada (negativa si son electrones)
+    # # Parámetros físicos
+    # epsilon_0 = 8.854e-12  # Permisividad del vacío
+    # rho_value = -1.62e-2   # [C/m^3], carga total deseada (negativa si son electrones)
 
-    # Parámetros del anillo
-    R = 0.035      # radio medio del anillo [m]
-    z0 = 0.017     # posición axial del anillo [m]
-    sigma = 0.002  # ancho del anillo [m]
+    # # Parámetros del anillo
+    # R = 0.035      # radio medio del anillo [m]
+    # z0 = 0.017     # posición axial del anillo [m]
+    # sigma = 0.002  # ancho del anillo [m]
 
-    # Espacio funcional
-    V = fem.functionspace(domain, ("CG", 1))
-    x = SpatialCoordinate(domain)
+    # # Espacio funcional
+    # V = fem.functionspace(domain, ("CG", 1))
+    # x = SpatialCoordinate(domain)
 
-    # Gaussiana tipo anillo
-    r = sqrt(x[0]**2 + x[1]**2)
-    dist_sq = (r - R)**2 + (x[2] - z0)**2
-    ring_expr = (rho_value / epsilon_0) * exp(-dist_sq / (2 * sigma**2))
+    # # Gaussiana tipo anillo
+    # r = sqrt(x[0]**2 + x[1]**2)
+    # dist_sq = (r - R)**2 + (x[2] - z0)**2
+    # ring_expr = (rho_value / epsilon_0) * exp(-dist_sq / (2 * sigma**2))
 
-    # Interpolar al espacio
-    source_term = fem.Function(V)
-    source_term.interpolate(fem.Expression(ring_expr, V.element.interpolation_points()))
+    # # Interpolar al espacio
+    # source_term = fem.Function(V)
+    # source_term.interpolate(fem.Expression(ring_expr, V.element.interpolation_points()))
+
+    source_term = load_density(domain)
 
     phi_h = solve_potential(
         domain=domain,
