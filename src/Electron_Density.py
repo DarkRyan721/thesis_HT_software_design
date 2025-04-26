@@ -7,7 +7,7 @@ import pyvista as pv
 from dolfinx.geometry import BoundingBoxTree, compute_colliding_cells
 
 
-def generate_density(domain, rho_value = -3e8, R=0.035, z0=0.017, sigma=0.01, epsilon_0=8.854e-12):
+def generate_density(domain, rho_value = 3e8, R=0.035, z0=0.017, sigma=0.01, epsilon_0=8.854e-12):
     """
     Genera la densidad de carga inicial n0 usando una distribución gaussiana tipo anillo.
 

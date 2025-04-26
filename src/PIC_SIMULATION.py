@@ -8,6 +8,10 @@ import time
 all_positions = np.load("data_files/particle_simulation.npy", mmap_mode="r")
 num_frames, num_particles, _ = all_positions.shape
 
+# print(all_positions[0])
+
+# all_positions = all_positions[:, :, :3]
+
 #_____________________________________________________________________________________________________
 #           2] Funcion para detener la simulacion
 
@@ -94,7 +98,14 @@ light = pv.Light(position=(-5*Rext, -5*Rext, -7*Rext), focal_point=(0, 0, 0), in
 plotter.add_light(light)
 
 # Crear arreglo de particulas inicial
-particles = pv.PolyData(all_positions[0])
+frame_data = all_positions[0]  # (N, 4)
+mask = frame_data[:, 3] == 1  # Creamos una máscara booleana para filtrar
+filtered_points = frame_data[mask, :3]
+
+if int(np.sum(mask).item()) == 0:
+    filtered_points = np.empty((0, 3))
+
+particles = pv.PolyData(filtered_points)
 
 # Añadir partículas al plotter
 particle_actor = plotter.add_mesh(particles, color='#74faf2', point_size=0.7, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
@@ -119,18 +130,45 @@ plotter.add_key_event("space", pausar_simulacion)
 #_____________________________________________________________________________________________________
 #           5] Animacion
 
+max_particles = num_particles  # Tamaño máximo del buffer
+buffer = np.full((max_particles, 3), np.nan, dtype=np.float32)
+
 for frame in range(num_frames):
     if window_closed:
         print("\n")
         break
 
-    while pausado["valor"]:  # Se queda esperando hasta que se reanude
-            plotter.update()
-            time.sleep(0.001)
-            frame -=1
+    while pausado["valor"]:
+        plotter.update()
+        time.sleep(0.001)
+        frame -= 1
 
-    particles.points = all_positions[frame]
-    particle_actor.mapper.dataset.points = particles.points
+    frame_data = all_positions[frame]
+
+    # Validación robusta
+    if frame_data.shape[1] < 4:
+        print(f"⚠️ Frame {frame} inválido, shape: {frame_data.shape}")
+        filtered_points = np.empty((0, 3))
+    else:
+        mask = frame_data[:, 3] == 1
+        filtered_points = frame_data[mask, :3]
+
+    # Usar buffer fijo
+    buffer[:] = np.nan  # Reiniciar todo en NaN
+    num_visible = min(len(filtered_points), max_particles)
+    if num_visible > 0:
+        buffer[:num_visible] = filtered_points[:num_visible]
+
+    # Mostrar u ocultar el actor
+    if num_visible == 0:
+        particle_actor.SetVisibility(False)
+    else:
+        particle_actor.SetVisibility(True)
+        particles.points = buffer
+        particle_actor.mapper.dataset.points = particles.points
+
     plotter.update()
-    time.sleep(1/50)
-    print(f"\rFrame: {frame + 1}/{num_frames}", end='', flush=True)
+    time.sleep(1 / 50)
+    print(f"\rFrame: {frame + 1}/{num_frames} | Partículas visibles: {num_visible}", end='', flush=True)
+
+print("\n")

@@ -1,249 +1,297 @@
-#-------LIBRERIAS-------
+# --------------------------------------------
+# Gen_Mallado_updated.py
+# HallThrusterMesh class - User Configurable
+# --------------------------------------------
+
 import gmsh
 import numpy as np
-import sys
 from mpi4py import MPI
 from dolfinx.io import XDMFFile
 import dolfinx.io.gmshio as gmshio
 
-#----------GENERADO DE MALLA------------
-
-def create_mesh(comm: MPI.Comm, model: gmsh.model, name: str, filename: str, mode: str):
+class HallThrusterMesh:
     """
-    Convierte un modelo de Gmsh a una malla de dolfinx y la guarda en formato XDMF.
-    
-    Parámetros:
-    -----------
-    comm : MPI.Comm
-        Comunicador MPI que se utiliza para distribuir la malla entre procesos.
-    model : gmsh.model
-        Modelo geométrico de Gmsh que se convertirá en malla.
-    name : str
-        Nombre lógico de la malla, para referencia interna.
-    filename : str
-        Nombre del archivo XDMF donde se guardará la malla.
-    mode : str
-        Modo de escritura (por ejemplo "w" para escribir la primera vez 
-        o "a" para agregar información en un archivo existente).
+    Class to generate a 3D mesh for a Hall-effect thruster (SPT-100 style)
+    with configurable geometry and refinement level.
     """
-    # Convirtiendo el modelo de Gmsh a una malla de dolfinx con etiquetas de células (ct) y facetas (ft).
-    msh, ct, ft = gmshio.model_to_mesh(model, comm, rank=0)
-    
-    # Asignar nombres para la malla y para las etiquetas de células y facetas.
-    msh.name = name
-    ct.name = f"{msh.name}_cells"
-    ft.name = f"{msh.name}_facets"
+    def __init__(self, R_big=0.1/2, R_small=0.056/2, H=0.02, refinement_level="low"):
+        """
+        Initialize geometric parameters and refinement options.
 
-    # Crear conectividad 2D-3D (facetas->volúmenes) necesaria para escribir correctamente las facetas.
-    msh.topology.create_connectivity(2, 3)
+        Parameters:
+        -----------
+        R_big : float
+            Outer radius of the annular channel.
+        R_small : float
+            Inner radius of the annular channel.
+        H : float
+            Axial depth of the thruster.
+        refinement_level : str
+            Mesh resolution, one of ['low', 'medium', 'high'].
+        """
+        self.R_big = R_big
+        self.R_small = R_small
+        self.H = H
+        self.L = 5 * R_big
+        self.filename = "data_files/SimulationZone"
+        self.refinement_level = refinement_level.lower()  # Make sure it's lowercase
 
-    # Guardar la malla y las etiquetas (meshtags) en el archivo XDMF.
-    with XDMFFile(msh.comm, filename, mode) as file:
-        file.write_mesh(msh)
-        file.write_meshtags(
-            ct, msh.geometry,
-            geometry_xpath=f"/Xdmf/Domain/Grid[@Name='{msh.name}']/Geometry"
-        )
-        file.write_meshtags(
-            ft, msh.geometry,
-            geometry_xpath=f"/Xdmf/Domain/Grid[@Name='{msh.name}']/Geometry"
-        )
+        # Define SizeMin and SizeMax based on refinement level
+        self._set_refinement_parameters()
 
-
-def solicitar_dimensiones():
-    """
-    Solicita al usuario los valores de radio externo, radio interno y profundidad
-    del canal (en mm), verificando que los datos sean enteros.
-
-    Retorna:
-    --------
-    (r_ext, r_int, profundidad) : tupla de int
-        - r_ext: Radio externo.
-        - r_int: Radio interno.
-        - profundidad: Longitud del canal (altura).
-    """
-    while True:
-        try:
-            r_ext = int(input("Ingresa el radio externo (en mm): "))
-            r_int = int(input("Ingresa el radio interno (en mm): "))
-            profundidad = int(input("Ingresa la profundidad del canal (en mm): "))
-            
-            # Validación 1: radio interno < radio externo.
-            if r_int >= r_ext:
-                print("El radio interno debe ser menor que el radio externo. Intenta de nuevo.\n")
-                continue
-            
-            # Validación 2: todos los valores deben ser positivos.
-            if r_ext <= 0 or r_int <= 0 or profundidad <= 0:
-                print("Todos los valores deben ser positivos. Intenta de nuevo.\n")
-                continue
-            
-            break  # Si se cumplen las validaciones, salimos del bucle.
-
-        except ValueError:
-            print("Error: Por favor ingresa un número entero válido.\n")
-    
-    return r_ext, r_int, profundidad
-
-
-def main():
-    """
-    Función principal que:
-      1. Inicializa Gmsh.
-      2. Solicita al usuario los parámetros geométricos (radios y altura).
-      3. Construye la geometría (un cubo grande + cilindro hueco).
-      4. Genera y etiqueta la malla en Gmsh.
-      5. Exporta la malla en formato .msh y .xdmf.
-      6. Finaliza la sesión de Gmsh.
-    """
-    # Inicializa Gmsh y crea un nuevo modelo:
-    gmsh.initialize()
-    gmsh.model.add("SPT100_Simulation_Zone")
-    
-    # Solicita al usuario los valores de radio externo, interno y profundidad:
-    #R_big, R_small, H = solicitar_dimensiones()
-    R_big = 0.1/2
-    R_small = 0.056/2
-    H = 0.02
-
-    # Se define un parámetro adicional para generar un cubo que representará la "pluma" (dominio externo).
-    # Aquí usamos, por ejemplo, un cubo de lado 3 * R_big. 
-    L = 2 * R_big  # Lado del cubo de la pluma
-
-    # (Opcional) Guardar parámetros en un archivo .txt para uso posterior:
-    with open("data_files/geometry_parameters.txt", "w") as f:
-        f.write(f"radio_externo: {R_big}\n")
-        f.write(f"radio_interno: {R_small}\n")
-        f.write(f"profundidad: {H}\n")
-        f.write(f"lado_cubo: {L}\n")
-
-    # -------------------------------------------------------------------------
-    # Construcción de la geometría:
-    #
-    #  - Un cubo de dimensiones L x L x L, que empieza en z=H, para simular la 
-    #    región exterior (plume).
-    #  - Dos cilindros concéntricos (uno externo y uno interno) de altura H, 
-    #    para representar el propulsor y su canal hueco.
-    # -------------------------------------------------------------------------
-
-    # 1) Crear el cubo:
-    cube = gmsh.model.occ.addBox(-L/2, -L/2, H, L, L, L)
-
-    # 2) Crear dos cilindros (externo e interno) que parten de z=0 a z=H:
-    cylinder_outer = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, H, R_big)
-    cylinder_inner = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, H, R_small)
-
-    # 3) "Cortar" el cilindro interno del externo para crear una pared hueca:
-    cylinder = gmsh.model.occ.cut([(3, cylinder_outer)], [(3, cylinder_inner)])
-    gmsh.model.occ.synchronize()
-
-    # 4) Fragmentar el cubo con el cilindro hueco para generar volúmenes separados:
-    fragmented = gmsh.model.occ.fragment([(3, cube)], cylinder[0])
-    gmsh.model.occ.synchronize()
-
-    # Identificamos los volúmenes resultantes de la fragmentación.
-    # Normalmente, se asume:
-    #   - Volumen 1: el cubo fragmentado (Plume_Domain).
-    #   - Volumen 2: el cilindro (Thruster_Domain).
-    cube_volume = 1
-    cylinder_volume = 2
-
-    # 5) Crear grupos físicos para cada volumen (esto permite asignarles 
-    #    etiquetas identificables en la malla):
-    gmsh.model.addPhysicalGroup(3, [cube_volume], 1)
-    gmsh.model.setPhysicalName(3, 1, "Plume_Domain")
-
-    gmsh.model.addPhysicalGroup(3, [cylinder_volume], 2)
-    gmsh.model.setPhysicalName(3, 2, "Thruster_Domain")
-
-    # -------------------------------------------------------------------------
-    # Etiquetado de superficies (fronteras) para condiciones de contorno:
-    # -------------------------------------------------------------------------
-    surfaces = gmsh.model.get_entities(dim=2)  # Entidades de dimensión 2 (caras)
-
-    inlet_surfaces = []
-    outlet_thruster_surfaces = []
-    cylinder_wall_surfaces = []
-    outlet_plume_surfaces = []
-    ids_oultet =[]
-
-    # Definimos una tolerancia para comparar coordenadas con isclose.
-    tol = 1e-3  
-
-    for surface in surfaces:
-        # Obtener centro de masa de la superficie
-        com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
-
-        # Si la cara está cerca de z=0 -> entrada de gas
-        if np.isclose(com[2], 0, atol=tol):
-            inlet_surfaces.append(surface[1])
-
-        # Si la cara está cerca de z=H -> salida del propulsor
-        elif np.isclose(com[2], H, atol=tol):
-            outlet_thruster_surfaces.append(surface[1])
-        # Si la cara está cerca de x=±L/2, y=±L/2, o z=H+L -> salida de la pluma
-        elif (np.isclose(com[0],  L/2, atol=tol) or np.isclose(com[0], -L/2, atol=tol) or
-              np.isclose(com[1],  L/2, atol=tol) or np.isclose(com[1], -L/2, atol=tol) or
-              np.isclose(com[2], H + L, atol=tol)):
-            outlet_plume_surfaces.append(surface[1])
-
-        # Lo que no encaja en las categorías anteriores se asume que es pared
+    def _set_refinement_parameters(self):
+        """
+        Internal method to set mesh refinement sizes.
+        """
+        if self.refinement_level == "low":
+            self.size_min = 0.008
+            self.size_max = 0.012
+        elif self.refinement_level == "medium":
+            self.size_min = 0.005
+            self.size_max = 0.009
+        elif self.refinement_level == "high":
+            self.size_min = 0.002
+            self.size_max = 0.004
         else:
-            cylinder_wall_surfaces.append(surface[1])
+            raise ValueError("Invalid refinement level. Choose 'low', 'medium', or 'high'.")
 
-    # Ajustes forzados (hardcode) según la geometría específica que generó Gmsh:
-    # Se fuerza a agregar la superficie con ID = 18 a la salida de la pluma.
-    # Esto depende de la numeración interna de Gmsh, que puede variar.
-    # Ojo: Usar con precaución, pues en otras versiones de Gmsh podrían cambiar los IDs.
-    outlet_plume_surfaces.append(5)
-    outlet_plume_surfaces.append(6)
-    outlet_plume_surfaces.append(8)
-    outlet_plume_surfaces.append(9)
-    outlet_plume_surfaces.append(10)
+    def create_mesh(self, comm: MPI.Comm, model: gmsh.model, name: str):
+        """
+        Convert the Gmsh model into a dolfinx mesh and export it to an XDMF file.
+        """
+        msh, ct, ft = gmshio.model_to_mesh(model, comm, rank=0)
+        msh.name = name
+        ct.name = f"{msh.name}_cells"
+        ft.name = f"{msh.name}_facets"
+        msh.topology.create_connectivity(2, 3)
 
-    # Filtramos la salida del propulsor para quedarnos solo con la superficie ID = 12.
-    outlet_thruster_surfaces = [s for s in outlet_thruster_surfaces if s == 7]
+        with XDMFFile(msh.comm, self.filename + ".xdmf", "w") as file:
+            file.write_mesh(msh)
+            file.write_meshtags(ct, msh.geometry,
+                geometry_xpath=f"/Xdmf/Domain/Grid[@Name='{msh.name}']/Geometry")
+            file.write_meshtags(ft, msh.geometry,
+                geometry_xpath=f"/Xdmf/Domain/Grid[@Name='{msh.name}']/Geometry")
 
-    # 6) Crear grupos físicos para las fronteras:
-    gmsh.model.addPhysicalGroup(2, inlet_surfaces, 3)
-    gmsh.model.setPhysicalName(2, 3, "Gas_inlet")
+    def find_matching_surfaces(self, reference_coords, all_surfaces, tol=1e-6):
+        """
+        Find surfaces whose center of mass matches reference coordinates (within tolerance).
+        """
+        matched = []
+        for ref in reference_coords:
+            for dim, tag in all_surfaces:
+                com = gmsh.model.occ.getCenterOfMass(dim, tag)
+                if np.linalg.norm(np.array(com) - np.array(ref)) < tol:
+                    matched.append(tag)
+        return matched
 
-    gmsh.model.addPhysicalGroup(2, outlet_thruster_surfaces, 4)
-    gmsh.model.setPhysicalName(2, 4, "Thruster_outlet")
+    def generate(self):
+        """
+        Main method to build geometry, assign physical groups, apply mesh refinement,
+        generate the mesh, and export it.
+        """
+        gmsh.initialize()
+        gmsh.model.add("SPT100_Simulation_Zone")
+        R_big, R_small, H, L = self.R_big, self.R_small, self.H, self.L
 
-    gmsh.model.addPhysicalGroup(2, cylinder_wall_surfaces, 5)
-    gmsh.model.setPhysicalName(2, 5, "Walls")
+        pos_cube = 1.5 * (L / 2)
 
-    gmsh.model.addPhysicalGroup(2, outlet_plume_surfaces, 6)
-    gmsh.model.setPhysicalName(2, 6, "Plume_outlet")
+        # ----------------------------------------------------------------------
+        # Geometry Construction
+        #(Don't alter the order of the code, because there could be changes in IDs that are used
+        #afterwards)
+        # ----------------------------------------------------------------------
+        #Hollow Cathode Points
+        point_1 = gmsh.model.occ.add_point(0.02,R_big+0.01,H)
+        point_2 = gmsh.model.occ.add_point(-0.02,R_big+0.01,H)
+        point_3 = gmsh.model.occ.add_point(0.02,R_big+0.04,H)
+        point_4 = gmsh.model.occ.add_point(-0.02,R_big+0.04,H)
+        point_5 = gmsh.model.occ.add_point(0.02,R_big+0.025,H+0.015)
+        point_6 = gmsh.model.occ.add_point(-0.02,R_big+0.025,H+0.015)
 
-    # -------------------------------------------------------------------------
-    # Parámetros de discretización de la malla
-    # -------------------------------------------------------------------------
-    # El tamaño mínimo y máximo de los elementos.
-    debye_lenght = 0.00001
-    lambda_factor = 100000
-    element_size = debye_lenght*lambda_factor
-    
-    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.003/2) #0.01
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.003)
+        #Plume domain points
+        point_7 = gmsh.model.occ.add_point(pos_cube,pos_cube,H)
+        point_8 = gmsh.model.occ.add_point(pos_cube,-pos_cube,H)
+        point_9 = gmsh.model.occ.add_point(-pos_cube,pos_cube,H)
+        point_10 = gmsh.model.occ.add_point(-pos_cube,-pos_cube,H)
+        point_11 = gmsh.model.occ.add_point(pos_cube,pos_cube,H+0.1)
+        point_12 = gmsh.model.occ.add_point(pos_cube,-pos_cube,H+0.1)
+        point_13 = gmsh.model.occ.add_point(-pos_cube,pos_cube,H+0.1)
+        point_14 = gmsh.model.occ.add_point(-pos_cube,-pos_cube,H+0.1)
 
-    # Generar la malla 3D.
-    gmsh.model.mesh.generate(3)
+        #Hollow Cathode lines
+        l1 = gmsh.model.occ.add_line(point_1,point_2)
+        l2 = gmsh.model.occ.add_line(point_3,point_4)
+        l3 = gmsh.model.occ.add_line(point_1,point_3)
+        l4 = gmsh.model.occ.add_line(point_2,point_4)
+        l5 = gmsh.model.occ.add_line(point_2,point_6)
+        l6 = gmsh.model.occ.add_line(point_4,point_6)
+        l7 = gmsh.model.occ.add_line(point_1,point_5)
+        l8 = gmsh.model.occ.add_line(point_3,point_5)
+        l9 = gmsh.model.occ.add_line(point_5,point_6)
 
-    # Exportar la malla en formato Gmsh .msh
-    gmsh.write("data_files/SimulationZone.msh")
+        #Plume domain Lines
+        l10 = gmsh.model.occ.add_line(point_7,point_8)
+        l11 = gmsh.model.occ.add_line(point_8,point_10)
+        l12 = gmsh.model.occ.add_line(point_10,point_9)
+        l13 = gmsh.model.occ.add_line(point_9,point_7)
+        l14 = gmsh.model.occ.add_line(point_11,point_12)
+        l15 = gmsh.model.occ.add_line(point_12,point_14)
+        l16 = gmsh.model.occ.add_line(point_14,point_13)
+        l17 = gmsh.model.occ.add_line(point_13,point_11)
 
-    # Exportar la malla a formato XDMF para FEniCSx:
-    create_mesh(MPI.COMM_WORLD, gmsh.model, 
-                name="SPT100_Simulation_Zone",
-                filename="data_files/SimulationZone.xdmf",
-                mode="w")
+        l18 = gmsh.model.occ.add_line(point_9,point_13)
+        l19 = gmsh.model.occ.add_line(point_7,point_11)
+        l20 = gmsh.model.occ.add_line(point_8,point_12)
+        l21 = gmsh.model.occ.add_line(point_10,point_14)
 
-    # Finaliza la sesión de Gmsh (muy importante para liberar recursos).
-    gmsh.finalize()
+        l22 = gmsh.model.occ.add_line(point_9,point_4)
+        l23 = gmsh.model.occ.add_line(point_7,point_3)
+        l24 = gmsh.model.occ.add_line(point_10,point_2)
+        l25 = gmsh.model.occ.add_line(point_8,point_1)
 
+        #Hollow Cathode Curve loops
+        curve_loop_hollow1 = gmsh.model.occ.add_curve_loop([l4,l5,l6])
+        curve_loop_hollow2 = gmsh.model.occ.add_curve_loop([l3,l7,l8])
+        curve_loop_hollow3 = gmsh.model.occ.add_curve_loop([l2,l8,l6,l9])
+        curve_loop_hollow4 = gmsh.model.occ.add_curve_loop([l9,l5,l1,l7])
+
+        #Plume Domain Curve Loops
+        curve_loop_plume1 = gmsh.model.occ.add_curve_loop([l22,l2,l23,l13])
+        curve_loop_plume2 = gmsh.model.occ.add_curve_loop([l17,l14,l15,l16])
+        curve_loop_plume3 = gmsh.model.occ.add_curve_loop([l13,l19,l17,l18])
+        curve_loop_plume4 = gmsh.model.occ.add_curve_loop([l10,l19,l14,l20])
+        curve_loop_plume5 = gmsh.model.occ.add_curve_loop([l11,l21,l15,l20])
+        curve_loop_plume6 = gmsh.model.occ.add_curve_loop([l21,l12,l18,l16])
+        curve_loop_plume7 = gmsh.model.occ.add_curve_loop([l23,l3,l25,l10])
+        curve_loop_plume8 = gmsh.model.occ.add_curve_loop([l24,l1,l25,l11])
+        curve_loop_plume9 = gmsh.model.occ.add_curve_loop([l24,l4,l22,l12])
+
+        #Surface Construction
+        surface_plume1 = gmsh.model.occ.add_plane_surface([curve_loop_plume1])
+        surface_plume2 = gmsh.model.occ.add_plane_surface([curve_loop_plume2])
+        surface_plume3 = gmsh.model.occ.add_plane_surface([curve_loop_plume3])
+        surface_plume4 = gmsh.model.occ.add_plane_surface([curve_loop_plume4])
+        surface_plume5 = gmsh.model.occ.add_plane_surface([curve_loop_plume5])
+        surface_plume6 = gmsh.model.occ.add_plane_surface([curve_loop_plume6])
+        surface_plume7 = gmsh.model.occ.add_plane_surface([curve_loop_plume7])
+        surface_plume8 = gmsh.model.occ.add_plane_surface([curve_loop_plume8])
+        surface_plume9 = gmsh.model.occ.add_plane_surface([curve_loop_plume9])
+        surface_hollow1 = gmsh.model.occ.add_plane_surface([curve_loop_hollow1])
+        surface_hollow2 = gmsh.model.occ.add_plane_surface([curve_loop_hollow2])
+        surface_hollow3 = gmsh.model.occ.add_plane_surface([curve_loop_hollow3])
+        surface_hollow4 = gmsh.model.occ.add_plane_surface([curve_loop_hollow4])
+
+        #Saving original COM of the surfaces for easily arragind physical groups
+        cathode_surfaces = [surface_hollow3,surface_hollow4,surface_hollow1,surface_hollow2]
+        
+        outlet_plume_surfaces = [surface_plume1,surface_plume2,surface_plume3,surface_plume4
+                                ,surface_plume5,surface_plume6,surface_plume7,surface_plume8
+                                ,surface_plume9]
+        
+        original_cathode_coords = [
+            gmsh.model.occ.getCenterOfMass(2,s) for s in cathode_surfaces
+        ]
+
+        original_outlet_coords = [
+            gmsh.model.occ.getCenterOfMass(2,s) for s in outlet_plume_surfaces
+        ]
+        surface_loop_cathode_plume = gmsh.model.occ.add_surface_loop([surface_plume1,
+        surface_plume2,surface_plume3,surface_plume4,surface_plume5,surface_plume6,
+        surface_hollow1,surface_hollow2,surface_hollow3,surface_hollow4,
+        surface_plume7,surface_plume8,surface_plume9])
+
+        vol_cathode_plume = gmsh.model.occ.add_volume([surface_loop_cathode_plume])
+
+        gmsh.model.occ.synchronize()
+
+        # Cylindrical channel body: outer and inner cylinders
+        cylinder_outer = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, H, R_big)
+        cylinder_inner = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, H, R_small)
+
+        # Subtract inner cylinder from outer to create a hollow ring
+        cylinder = gmsh.model.occ.cut([(3, cylinder_outer)], [(3, cylinder_inner)])
+        gmsh.model.occ.synchronize()
+
+        # Fragment geometry to ensure intersection and meshing coherence
+        fragmented = gmsh.model.occ.fragment([(3, vol_cathode_plume)], cylinder[0])
+        gmsh.model.occ.synchronize()
+
+        # ----------------------------------------------------------------------
+        # Assign physical groups (volumes and surfaces)
+        # ----------------------------------------------------------------------
+        vol_cathode_plume = 1
+        cylinder_volume = 2
+
+        gmsh.model.addPhysicalGroup(3, [vol_cathode_plume], 1)
+        gmsh.model.setPhysicalName(3, 1, "Plume_Domain")
+        gmsh.model.addPhysicalGroup(3, [cylinder_volume], 2)
+        gmsh.model.setPhysicalName(3, 2, "Thruster_Domain")
+
+
+        # Recover surfaces after geometry operations
+        all_surfaces = gmsh.model.getEntities(2)
+        outlet_plume_surfaces_new = self.find_matching_surfaces(original_outlet_coords, all_surfaces)
+        cathode_surfaces_new = self.find_matching_surfaces(original_cathode_coords,all_surfaces)
+
+
+        # Identify inlet, outlet, and wall surfaces by their center-of-mass coordinates
+        inlet_surfaces = []
+        outlet_thruster_surfaces = []
+        cylinder_wall_surfaces = []
+
+        tol = 1e-3
+        for s in all_surfaces:
+            com = gmsh.model.occ.getCenterOfMass(s[0],s[1])
+            if np.isclose(com[2],0,atol=tol):
+                inlet_surfaces.append(s[1])
+
+        outlet_thruster_surfaces = [19]
+        cylinder_wall_surfaces = [17,18]
+        outlet_plume_surfaces_new.append(32)
+        outlet_plume_surfaces_new.append(33)
+
+        # Assign surface physical groups with appropriate tags
+        gmsh.model.addPhysicalGroup(2,cathode_surfaces_new,7)
+        gmsh.model.setPhysicalName(2, 7, "Cathode_walls")
+
+        gmsh.model.addPhysicalGroup(2, inlet_surfaces, 3)
+        gmsh.model.setPhysicalName(2, 3, "Gas_inlet")
+
+        gmsh.model.addPhysicalGroup(2, outlet_thruster_surfaces, 4)
+        gmsh.model.setPhysicalName(2, 4, "Thruster_outlet")
+
+        gmsh.model.addPhysicalGroup(2, cylinder_wall_surfaces, 5)
+        gmsh.model.setPhysicalName(2, 5, "Walls")
+
+        gmsh.model.addPhysicalGroup(2, outlet_plume_surfaces_new, 6)
+        gmsh.model.setPhysicalName(2, 6, "Plume_outlet")
+
+        # ----------------------------------------------------------------------
+        # Local Mesh concentration (NEW: uses dynamic self.size_min and self.size_max)
+        # ----------------------------------------------------------------------
+        concentration_surfaces = cathode_surfaces_new + inlet_surfaces + cylinder_wall_surfaces + outlet_thruster_surfaces
+
+        gmsh.model.mesh.field.add("Distance", 1)
+        gmsh.model.mesh.field.setNumbers(1, "FacesList", concentration_surfaces)
+
+        gmsh.model.mesh.field.add("Threshold", 2)
+        gmsh.model.mesh.field.setNumber(2, "InField", 1)
+        gmsh.model.mesh.field.setNumber(2, "SizeMin", self.size_min)
+        gmsh.model.mesh.field.setNumber(2, "SizeMax", self.size_max)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", 0.001)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 0.008)
+
+        gmsh.model.mesh.field.setAsBackgroundMesh(2)
+
+        # ----------------------------------------------------------------------
+        # Final Mesh generation and Export
+        # ----------------------------------------------------------------------
+        gmsh.model.mesh.generate(3)
+        #gmsh.fltk.run()
+        gmsh.write(self.filename + ".msh")
+        self.create_mesh(MPI.COMM_WORLD, gmsh.model, name="SPT100_Simulation_Zone")
+        gmsh.finalize()
 
 if __name__ == "__main__":
-    main()
-
+    mesh_generator = HallThrusterMesh(refinement_level="high")
+    mesh_generator.generate()

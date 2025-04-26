@@ -4,6 +4,83 @@ import cupy as cp
 from tqdm import tqdm
 from thermostat import aplicar_termostato
 
+from scipy.spatial import cKDTree
+
+def actualizar_rho(s, s_label, tree, M, N_real=1e9, V_celda=1e-9):
+    """
+    Calcula la nueva densidad de carga (rho) con base en las posiciones de iones (electrones).
+    
+    Args:
+        s (cp.ndarray): Posiciones de partículas Nx3 (en GPU).
+        s_label (cp.ndarray): Etiquetas (N,) → 1 si ionizado, 0 si neutro.
+        s_rho (np.ndarray): Puntos de malla Mx3.
+        tree (cKDTree): Árbol para interpolación.
+        M (int): Número de nodos en la malla.
+        N_real (float): Número de electrones reales representados por cada partícula.
+        V_celda (float): Volumen aproximado de cada celda en m³.
+    
+    Returns:
+        rho (np.ndarray): Densidad de carga actualizada en [C/m³].
+    """
+    q_e = 1.602e-19  # Carga del electrón
+
+    # Paso 1: Extraer posiciones de partículas ionizadas
+    s_cpu = cp.asnumpy(s)
+    s_label_cpu = cp.asnumpy(s_label)
+    s_ion = s_cpu[s_label_cpu.ravel() == 1]
+
+    # Paso 2: Asignar al nodo más cercano
+    idxs = tree.query(s_ion)[1]
+
+    # Paso 3: Contar cuántas partículas caen en cada nodo
+    counts = np.bincount(idxs, minlength=M)
+
+    # Paso 4: Calcular densidad de carga
+    carga_total = -counts * q_e * N_real
+    rho = carga_total / V_celda  # densidad de carga en C/m³
+
+    return rho
+
+
+def ionizacion(S, v, s_label, s_rho, rho, sigma_ion, dt):
+    """
+    Versión vectorizada y optimizada del proceso de ionización.
+
+    S, v, s_label deben ser CuPy arrays.
+    s_rho y rho deben estar en NumPy (malla original), como se usan en KDTree.
+    """
+    N_real = 1e6  # escalamiento PIC
+
+    # Pasar a NumPy (solo para cKDTree)
+    S_cpu = cp.asnumpy(S)
+
+    # Paso 1: Encontrar el punto más cercano de la malla a cada partícula
+    tree = cKDTree(s_rho)
+    _, idxs = tree.query(S_cpu)  # idxs.shape = (N,)
+
+    # Paso 2: Obtener rho en cada punto de partícula
+    rho_part = rho[idxs]  # NumPy, carga [C/m^3]
+
+    # Paso 3: Convertir a densidad numérica de electrones
+    n_e = -rho_part  # partículas/m³
+
+    # Paso 4: Pasar a CuPy para seguir con operaciones vectorizadas
+    n_e_cp = cp.asarray(n_e)
+    v_mag = cp.linalg.norm(v, axis=1)
+
+    # Paso 5: Calcular P_ion para todas
+    nu_ion = n_e_cp * sigma_ion * v_mag
+    P_ion = 1 - cp.exp(-nu_ion * dt)
+
+    # Paso 6: Generar números aleatorios y decidir cambios
+    aleatorios = cp.random.rand(len(S))
+    ocurren = aleatorios < P_ion
+
+    # Paso 7: Cambiar etiquetas solo donde ocurren
+    s_label[ocurren] = 1 - s_label[ocurren]
+
+    return s_label
+
 #_____________________________________________________________________________________________________
 #               1] Funcion para distribuir particulas por el espacio de manera cilindrica
 
@@ -116,8 +193,8 @@ def Interpolate_M(tree, Mx_values, My_values, Mz_values, s):
 #_____________________________________________________________________________________________________
 #               3] Parámetros de simulación
 
-N = 100000 # Número de partículas
-dt = 0.0000000000001  # Delta de tiempo
+N = 1000000 # Número de partículas
+dt = 0.000000001   # Delta de tiempo
 q_m = 7.35e5 # Valor Carga/Masa
 m = 2.18e-25
 
@@ -144,12 +221,12 @@ L = info.get("profundidad",0) # Longitud del cilindro
 
 tree, Ex_values, Ey_values, Ez_values = Interpolator_Electric_Field(E_Field_File)  # Campo eléctrico y su interpolador
 tree_m, Mx_values, My_values, Mz_values = Interpolator_Magnetic_Field(M_Field_File)
-B0 = 1000  # Magnitud del campo magnético radial
 
 #_____________________________________________________________________________________________________
 #               4] Inicialización de partículas (posición y velocidad)
 
 s = initialize_particles(N, Rin=Rin, Rex=Rex, L=L)  # Posiciones iniciales
+s_label = cp.ones((N,1))
 
 # Definicion de velocidades con limites en cada eje
 Vx_min, Vx_max = -0, 0
@@ -168,7 +245,7 @@ v = np.vstack((v_x, v_y, v_z)).T  # Juntamos los valores en una matriz Nx3
 timesteps = 500  # Número de frames de la animación
 
 # Inicializar almacenamiento de datos
-all_positions = np.zeros((timesteps, N, 3), dtype=np.float32)
+all_positions = np.zeros((timesteps, N, 4), dtype=np.float32)
 
 #_____________________________________________________________________________________________________
 #               6] Función para mover partículas
@@ -178,27 +255,14 @@ all_positions = np.zeros((timesteps, N, 3), dtype=np.float32)
 # Se pasan las variables (s,v,E) a la GPU
 s_gpu = cp.array(s)
 v_gpu = cp.array(v)
+sigma_ion = 1e-20
+s_rho =  E_Field_File[:, :3]
+rho = np.load('data_files/density_n0.npy')
 
 Temp = []
 
-def move_particles(s, v, dt, q_m, B0):
-
-    # # Definira el rango en el campo magnetico tiene valor [0,0.02] en Z
-    # mask_B = (s[:, 2] >= 0) & (s[:,2] <= 0.02)
-
-    # # Calcular el radio en el plano XY
-    # r = cp.sqrt((s[:, 0])**2 + (s[:, 1])**2)
-
-    # # Inicializando vectores de campo magnetico
-    # Bx, By, Bz = cp.zeros_like(s[:, 0]), cp.zeros_like(s[:, 0]), cp.zeros_like(s[:, 0])
-    
-    # # Campo magnético radial hacia el centro del cilindro
-    # Bx[mask_B] = -B0 * ((s[mask_B, 0]) / r[mask_B])
-    # By[mask_B] = -B0 * ((s[mask_B, 1]) / r[mask_B])
-
-    # # Crear la matriz del campo magnético para todas las partículas
-    # B = cp.column_stack((Bx, By, Bz))  
-
+def move_particles(s, v, dt, q_m, s_label):
+    global rho
     # mask_B = (s[:, 2] >= 0) & (s[:, 2] <= (1.1*L))
     # B = Interpolate_M(tree_m, Mx_values, My_values, Mz_values, s[mask_B])
 
@@ -213,14 +277,28 @@ def move_particles(s, v, dt, q_m, B0):
     # E_filtered = Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s[mask_E])
     # E = cp.zeros_like(v)
     # E[mask_E] = E_filtered
-    E = Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s)
-    E = cp.array(E)
+    # Máscara para partículas ionizadas (s_label == 1)
+    mask_ion = (s_label.ravel() == 1)
 
-    # Actualizacion de velocidad
-    v += q_m * (E) * dt
+    # Solo calcular campo en los iones
+    s_ion = s[mask_ion]
+    E_ion = Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s_ion)
+    E_ion = cp.asarray(E_ion)
 
-    # Actualizacion de posicion
+    # Actualización de velocidad solo para iones
+    v[mask_ion] += q_m * E_ion * dt
+
+    # Actualización de posición para todas (ión y neutro)
     s += v * dt
+
+    s_label = ionizacion(s, v, s_label, s_rho, rho, sigma_ion, dt)
+
+    # tree_rho = cKDTree(s_rho)
+
+    # rho += actualizar_rho(s, s_label, tree_rho, M=len(s_rho))  # V es volumen de celda
+    
+    #num_neutrones = np.sum(s_label == 1)
+    #print(num_neutrones)
 
     # Mascara para vigilar colisiones en el cilindro
     r_collision = cp.sqrt(s[:, 0]**2 + s[:, 1]**2)
@@ -308,7 +386,7 @@ def move_particles(s, v, dt, q_m, B0):
         v[mask_out] = v_new
     
     # Retornamos la posicion espacial de las particulas para ser almacenadas
-    return s
+    return s, s_label
 
 #_____________________________________________________________________________________________________
 #               7] Simulacion y proceso de renderizado
@@ -318,17 +396,21 @@ print("Ejecutando simulación y guardando datos...")
 for t in tqdm(range(timesteps), desc="Progreso"):
 
     # Funcion de movimiento
-    s = move_particles(s_gpu, v_gpu, dt, q_m, B0)
+    s, s_label = move_particles(s_gpu, v_gpu, dt, q_m, s_label)
 
     # Conversion de [s] a datos de CPU(numpy) nuevamente
     s_np = cp.asnumpy(s)
+    s_label_np = s_label.get()
+    combined = np.concatenate((s_np, s_label_np), axis=1)
 
     # Guardar la posición de las partículas en este frame
-    all_positions[t] = s_np  
+    all_positions[t] = combined  
 
 # Guardar el archivo con todas las posiciones simuladas
 np.save("data_files/particle_simulation.npy", all_positions)
 print("Simulación guardada exitosamente en 'particle_simulation.npy'")
+
+np.save("data_files/rho_2.npy", rho)
 
 # import mplcursors
 
