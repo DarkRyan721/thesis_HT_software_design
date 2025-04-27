@@ -247,10 +247,19 @@ if __name__ == "__main__":
     Volt_input = 300
     print("\nSolving Laplace equation...")
     phi_laplace, E_laplace = solver.solve_laplace(Volt=Volt_input)
-    solver.save_electric_field_numpy(E_laplace, filename="Electric_Field_Laplace.npy")
+    solver.save_electric_field_numpy(E_laplace, filename="Electric_Field_np.npy")
     print("Laplace solution completed and saved.")
+
+
+    # #Solve Poisson
+    # print("\nSolving Poisson equation...")
+    # source_term= "data_files/density_n0.npy"
+    # phi_poisson, E_poisson = solver.solve_poisson(source_term=source_term)
+    # solver.save_electric_field_numpy(E_poisson, filename="Electric_Field_np.npy")
+    # print("Poisson solution completed and saved.")
+
 
     # Plot the resulting electric field
     print("\nPlotting the electric field from Laplace solution...")
-    solver.plot_E_Field(filename="Electric_Field_Laplace.npy")
+    solver.plot_E_Field(filename="Electric_Field_np.npy")
     print("\nTest Completed Successfully!")

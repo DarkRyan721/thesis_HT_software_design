@@ -59,7 +59,7 @@ def plot_density(domain, title="Densidad de Carga Inicial n0"):
     E_np = np.load('Electric_Field_np.npy')
     points = E_np[:, :3]  # X, Y, Z
 
-    n0 = np.load('density_end.npy')  # Tu archivo de densidad
+    n0 = np.load('density_n0.npy')  # Tu archivo de densidad
 
     # Crear un objeto PolyData
     mesh = pv.PolyData(points)
@@ -103,12 +103,12 @@ if __name__ == "__main__":
         domain = xdmf.read_mesh(name="SPT100_Simulation_Zone")
 
     # Generar la densidad de carga inicial
-    #n0 = generate_density(domain)
+    n0 = generate_density(domain)
 
     # # Plotear la densidad de carga
 
     # # Guardar la densidad de carga
-    #save_density(n0)
+    save_density(n0)
 
     plot_density(domain)
 
