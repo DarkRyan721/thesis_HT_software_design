@@ -1,6 +1,8 @@
 # --------------------------------------------
-# Gen_Mallado_updated.py
-# HallThrusterMesh class - User Configurable
+# Gen_Mallado.py
+# HallThrusterMesh class - Mesh generator for Hall-effect thruster simulation
+# Author: Alfredo Cuellar Valencia, Collin Andrey Sanchez, Miguel Angel Cera
+# Purpose: Build a 3D mesh in Gmsh, export it in XDMF format for FEniCSx.
 # --------------------------------------------
 
 import gmsh
@@ -11,8 +13,10 @@ import dolfinx.io.gmshio as gmshio
 
 class HallThrusterMesh:
     """
-    Class to generate a 3D mesh for a Hall-effect thruster (SPT-100 style)
-    with configurable geometry and refinement level.
+    HallThrusterMesh class:
+    - Programmatically builds a 3D geometry based on the SPT-100 thruster.
+    - Supports configurable geometry and mesh refinement levels.
+    - Generates physical tags for regions and exports mesh for simulation.
     """
     def __init__(self, R_big=0.1/2, R_small=0.056/2, H=0.02, refinement_level="low"):
         """
@@ -21,11 +25,11 @@ class HallThrusterMesh:
         Parameters:
         -----------
         R_big : float
-            Outer radius of the annular channel.
+            Outer radius of the annular channel. [m]
         R_small : float
-            Inner radius of the annular channel.
+            Inner radius of the annular channel. [m]
         H : float
-            Axial depth of the thruster.
+            Axial depth of the thruster. [m]
         refinement_level : str
             Mesh resolution, one of ['low', 'medium', 'high'].
         """
@@ -113,10 +117,10 @@ class HallThrusterMesh:
         point_8 = gmsh.model.occ.add_point(pos_cube,-pos_cube,H)
         point_9 = gmsh.model.occ.add_point(-pos_cube,pos_cube,H)
         point_10 = gmsh.model.occ.add_point(-pos_cube,-pos_cube,H)
-        point_11 = gmsh.model.occ.add_point(pos_cube,pos_cube,H+0.1)
-        point_12 = gmsh.model.occ.add_point(pos_cube,-pos_cube,H+0.1)
-        point_13 = gmsh.model.occ.add_point(-pos_cube,pos_cube,H+0.1)
-        point_14 = gmsh.model.occ.add_point(-pos_cube,-pos_cube,H+0.1)
+        point_11 = gmsh.model.occ.add_point(pos_cube,pos_cube,H+0.2)
+        point_12 = gmsh.model.occ.add_point(pos_cube,-pos_cube,H+0.2)
+        point_13 = gmsh.model.occ.add_point(-pos_cube,pos_cube,H+0.2)
+        point_14 = gmsh.model.occ.add_point(-pos_cube,-pos_cube,H+0.2)
 
         #Hollow Cathode lines
         l1 = gmsh.model.occ.add_line(point_1,point_2)
@@ -232,7 +236,9 @@ class HallThrusterMesh:
         all_surfaces = gmsh.model.getEntities(2)
         outlet_plume_surfaces_new = self.find_matching_surfaces(original_outlet_coords, all_surfaces)
         cathode_surfaces_new = self.find_matching_surfaces(original_cathode_coords,all_surfaces)
-
+        cathode_surfaces_new.remove(29)
+        cathode_surfaces_new.remove(28)
+        cathode_surfaces_new.remove(27)
 
         # Identify inlet, outlet, and wall surfaces by their center-of-mass coordinates
         inlet_surfaces = []
@@ -249,6 +255,9 @@ class HallThrusterMesh:
         cylinder_wall_surfaces = [17,18]
         outlet_plume_surfaces_new.append(32)
         outlet_plume_surfaces_new.append(33)
+        outlet_plume_surfaces_new.append(27)
+        outlet_plume_surfaces_new.append(28)
+        outlet_plume_surfaces_new.append(29)
 
         # Assign surface physical groups with appropriate tags
         gmsh.model.addPhysicalGroup(2,cathode_surfaces_new,7)
@@ -293,5 +302,10 @@ class HallThrusterMesh:
         gmsh.finalize()
 
 if __name__ == "__main__":
-    mesh_generator = HallThrusterMesh(refinement_level="high")
-    mesh_generator.generate()
+    # From GUI inputs:
+    outer_radius = 0.1/2
+    inner_radius = 0.056/2
+    height = 0.02
+    refinement = "low"
+    mesh_gen = HallThrusterMesh(R_big=outer_radius, R_small=inner_radius, H=height, refinement_level=refinement)
+    mesh_gen.generate()

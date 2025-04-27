@@ -1,23 +1,36 @@
 # --------------------------------------------
-# fields_solver.py
+# E_field_solver.py
 # Class to solve Laplace and Poisson equations using FEniCSx
+# Authors: Alfredo Cuellar Valencia, Collin Andrey Sanchez, Miguel Angel Cera
+# Purpose: Simulate and visualize electric fields in a Hall effect thruster geometry.
 # --------------------------------------------
 
 import os
 import numpy as np
 from mpi4py import MPI
-from dolfinx import fem, io, mesh
+from dolfinx import fem, io
 import ufl
 from dolfinx.fem.petsc import LinearProblem
 from petsc4py import PETSc
-from ufl import grad, inner, dx, exp, SpatialCoordinate
-import numpy as np
 import pyvista as pv
+from ufl import grad, inner, dx, SpatialCoordinate
 
 class ElectricFieldSolver:
+    """
+    ElectricFieldSolver class:
+    - Loads a pre-generated mesh (XDMF format)
+    - Solves the Laplace or Poisson equations for electric potential
+    - Computes the resulting electric field E = -grad(phi)
+    - Saves results and optionally visualizes them
+    """
+
     def __init__(self, mesh_file="SimulationZone.xdmf", mesh_folder="data_files"):
         """
-        Initializes the solver by loading the mesh and facet tags.
+        Initializes the solver by loading the mesh and physical tags.
+        
+        Parameters:
+        - mesh_file (str): Path to the mesh XDMF file.
+        - mesh_folder (str): Directory where mesh files are located.
         """
         self.mesh_folder = mesh_folder
         self.mesh_file = mesh_file
@@ -25,39 +38,45 @@ class ElectricFieldSolver:
     
     def _load_mesh_and_tags(self):
         """
-        Loads the mesh and facet tags from the XDMF file.
+        Internal method to load the mesh and associated facet and cell tags
+        needed for applying boundary conditions and material properties.
         """
-        # Change to the data_files directory
         os.chdir(self.mesh_folder)
 
-        # Load mesh
+        # Load domain (volume mesh)
         with io.XDMFFile(MPI.COMM_WORLD, self.mesh_file, "r") as xdmf:
             self.domain = xdmf.read_mesh(name="SPT100_Simulation_Zone")
         
-        # Create required connectivity
+        # Ensure face-to-volume connectivity is established
         self.domain.topology.create_connectivity(self.domain.topology.dim - 1, self.domain.topology.dim)
 
-        # Load facet and cell tags
+        # Load facet (boundary) and cell (domain) tags
         with io.XDMFFile(MPI.COMM_WORLD, self.mesh_file, "r") as xdmf:
             self.facet_tags = xdmf.read_meshtags(self.domain, name="SPT100_Simulation_Zone_facets")
             self.cell_tags = xdmf.read_meshtags(self.domain, name="SPT100_Simulation_Zone_cells")
         
-        # Basic info
+        # Print basic info
         print(f"Mesh loaded: dimension {self.domain.topology.dim}, nodes {self.domain.geometry.x.shape[0]}")
         print(f"Facet tags loaded: {set(self.facet_tags.values)}")
 
     def _setup_function_space(self):
         """
-        Creates a scalar CG(1) function space for the domain.
+        Creates the function space (scalar continuous Galerkin) for potential phi.
         """
         return fem.functionspace(self.domain, ("CG", 1))
 
     def _apply_boundary_conditions(self, V, volt_tag, ground_tag, cathode_tag, Volt, Volt_cath):
         """
-        Applies Dirichlet boundary conditions.
+        Applies Dirichlet boundary conditions (fixed potentials) on tagged surfaces.
+        
+        Parameters:
+        - V: Function space
+        - volt_tag, ground_tag, cathode_tag: Physical tags identifying boundary surfaces
+        - Volt: Voltage at the anode
+        - Volt_cath: Voltage at the cathode
         """
         u_bc = fem.Function(V)
-        u_bc.x.array[:] = np.nan  # Init as NaN
+        u_bc.x.array[:] = np.nan  # Mark all nodes initially as undefined
 
         boundary_conditions = []
 
@@ -70,7 +89,7 @@ class ElectricFieldSolver:
             bc = fem.dirichletbc(u_bc, dofs)
             boundary_conditions.append(bc)
 
-        # Save boundary conditions for visualization
+        # Save BC function for visualization
         with io.XDMFFile(self.domain.comm, "boundary_conditions.xdmf", "w") as xdmf:
             xdmf.write_mesh(self.domain)
             xdmf.write_function(u_bc)
@@ -79,23 +98,39 @@ class ElectricFieldSolver:
 
     def _compute_electric_field(self, phi_h):
         """
-        Computes the electric field E = -grad(phi_h)
+        Given the solved potential phi_h, compute the electric field E = -grad(phi).
+        
+        Parameters:
+        - phi_h: Solved potential field
+        
+        Returns:
+        - E_field: Computed electric field (vector field)
         """
         V_vector = fem.functionspace(self.domain, ("CG", 1, (self.domain.geometry.dim,)))
         E_field = fem.Function(V_vector)
         E_expr = fem.Expression(-grad(phi_h), V_vector.element.interpolation_points())
         E_field.interpolate(E_expr)
 
-        # Save E field
+        # Save the electric field
         with io.XDMFFile(self.domain.comm, "Electric_Field.xdmf", "w") as xdmf:
             xdmf.write_mesh(self.domain)
             xdmf.write_function(E_field)
 
         return E_field
 
-    def solve_laplace(self, volt_tag=3, ground_tag=4, cathode_tag=7, Volt=300, Volt_cath=18):
+    def solve_laplace(self, volt_tag=3, ground_tag=6, cathode_tag=7, Volt=300, Volt_cath=18):
         """
-        Solves the Laplace equation: -div(grad(phi)) = 0
+        Solves the Laplace equation:
+            -div(grad(phi)) = 0
+        
+        Parameters:
+        - volt_tag, ground_tag, cathode_tag: Tags for boundaries
+        - Volt: Anode voltage
+        - Volt_cath: Cathode voltage
+        
+        Returns:
+        - phi_h: Solved potential field
+        - E_field: Computed electric field
         """
         V = self._setup_function_space()
         phi = ufl.TrialFunction(V)
@@ -109,18 +144,29 @@ class ElectricFieldSolver:
         problem = LinearProblem(a, L, bcs=bcs, petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
         phi_h = problem.solve()
 
-        # Save potential
+        # Save the potential
         with io.XDMFFile(self.domain.comm, "Laplace.xdmf", "w") as xdmf:
             xdmf.write_mesh(self.domain)
             xdmf.write_function(phi_h)
 
-        # Calculate and return E field
+        # Calculate E field
         E_field = self._compute_electric_field(phi_h)
         return phi_h, E_field
 
-    def solve_poisson(self, source_term=None, volt_tag=3, ground_tag=4, cathode_tag=7, Volt=300, Volt_cath=18):
+    def solve_poisson(self, source_term=None, volt_tag=3, ground_tag=6, cathode_tag=7, Volt=300, Volt_cath=18):
         """
-        Solves the Poisson equation: -div(grad(phi)) = rho/epsilon_0
+        Solves the Poisson equation:
+            -div(grad(phi)) = rho/epsilon_0
+        
+        Parameters:
+        - source_term: Right-hand side source term (charge density)
+        - volt_tag, ground_tag, cathode_tag: Boundary tags
+        - Volt: Anode voltage
+        - Volt_cath: Cathode voltage
+        
+        Returns:
+        - phi_h: Solved potential field
+        - E_field: Computed electric field
         """
         V = self._setup_function_space()
         phi = ufl.TrialFunction(V)
@@ -140,18 +186,21 @@ class ElectricFieldSolver:
         problem = LinearProblem(a, L, bcs=bcs, petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
         phi_h = problem.solve()
 
-        # Save potential
+        # Save the potential
         with io.XDMFFile(self.domain.comm, "Poisson.xdmf", "w") as xdmf:
             xdmf.write_mesh(self.domain)
             xdmf.write_function(phi_h)
 
-        # Calculate and return E field
+        # Calculate E field
         E_field = self._compute_electric_field(phi_h)
         return phi_h, E_field
 
     def save_electric_field_numpy(self, E_field, filename="Electric_Field_np.npy"):
         """
-        Saves the electric field to a .npy file combining node positions and field values.
+        Saves the electric field to a .npy file.
+        The file contains coordinates and electric field vector components.
+        
+        Format: [x, y, z, Ex, Ey, Ez]
         """
         X = self.domain.geometry.x
         E_values = E_field.x.array.reshape(-1, self.domain.geometry.dim)
@@ -159,37 +208,49 @@ class ElectricFieldSolver:
         np.save(filename, E_np)
         print(f"Electric field saved to {filename}")
 
-    def plot_E_Field(self):
-        # Cargar datos
-        E_np = np.load('Electric_Field_np.npy')
-        points = E_np[:, :3]  # X, Y, Z
-        vectors = E_np[:, 3:]  # Ex, Ey, Ez
+    def plot_E_Field(self, filename="Electric_Field_np.npy"):
+        """
+        Visualizes the electric field from a .npy file using PyVista.
+        
+        Parameters:
+        - filename: Path to the saved .npy electric field file.
+        """
+        E_np = np.load(filename)
+        points = E_np[:, :3]
+        vectors = E_np[:, 3:]
 
-        # Calcular la magnitud para el mapa de calor
         magnitudes = np.linalg.norm(vectors, axis=1)
-        log_magnitudes = np.log10(magnitudes + 1e-3)  # Evitamos log(0)
+        log_magnitudes = np.log10(magnitudes + 1e-3)
 
-        # Crear un objeto PolyData
         mesh = pv.PolyData(points)
-
-        # Añadir los vectores al objeto
         mesh["vectors"] = vectors
         mesh["magnitude"] = log_magnitudes
 
-        # Crear un glyph (flecha por vector)
-        glyphs = mesh.glyph(orient="vectors", scale=False, factor=0.0025)
+        glyphs = mesh.glyph(orient="vectors", scale=False, factor=0.01)
 
-        # Crear el plotter
         plotter = pv.Plotter()
         plotter.set_background("white")
         plotter.add_mesh(glyphs, scalars="magnitude", cmap="plasma")
-        #plotter.add_scalar_bar(title="|E| [V/m]", vertical=True)
         plotter.add_axes()
         plotter.add_title("Campo Eléctrico - Dirección y Magnitud")
-
         plotter.show()
 
-if __name__ == "__main__":
-    E_field = ElectricFieldSolver()
 
-    E_field.plot_E_Field()
+if __name__ == "__main__":
+    # Example usage
+
+    solver = ElectricFieldSolver()
+
+    print("\nMesh loaded successfully!")
+
+    # Solve Laplace equation with specific anode voltage
+    Volt_input = 300
+    print("\nSolving Laplace equation...")
+    phi_laplace, E_laplace = solver.solve_laplace(Volt=Volt_input)
+    solver.save_electric_field_numpy(E_laplace, filename="Electric_Field_Laplace.npy")
+    print("Laplace solution completed and saved.")
+
+    # Plot the resulting electric field
+    print("\nPlotting the electric field from Laplace solution...")
+    solver.plot_E_Field(filename="Electric_Field_Laplace.npy")
+    print("\nTest Completed Successfully!")
