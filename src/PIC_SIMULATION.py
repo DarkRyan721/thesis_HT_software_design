@@ -97,18 +97,22 @@ plotter.camera.view_angle = 60  # Gran angular
 light = pv.Light(position=(-5*Rext, -5*Rext, -7*Rext), focal_point=(0, 0, 0), intensity=1.5)
 plotter.add_light(light)
 
-# Crear arreglo de particulas inicial
-frame_data = all_positions[0]  # (N, 4)
-mask = frame_data[:, 3] == 1  # Creamos una máscara booleana para filtrar
-filtered_points = frame_data[mask, :3]
+# Crear arreglo de partículas inicial SEPARADO
+frame_data = all_positions[0]
 
-if int(np.sum(mask).item()) == 0:
-    filtered_points = np.empty((0, 3))
+mask_ions = frame_data[:, 3] == 1
+mask_neutrals = frame_data[:, 3] == 0
 
-particles = pv.PolyData(filtered_points)
+ions_points = frame_data[mask_ions, :3]
+neutrals_points = frame_data[mask_neutrals, :3]
 
-# Añadir partículas al plotter
-particle_actor = plotter.add_mesh(particles, color='#74faf2', point_size=0.7, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
+ions = pv.PolyData(ions_points)
+neutrals = pv.PolyData(neutrals_points)
+
+# Añadir iones y neutros al plotter con diferentes colores
+ion_actor = plotter.add_mesh(ions, color='deepskyblue', point_size=1.7, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
+neutral_actor = plotter.add_mesh(neutrals, color='red', point_size=1.7, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
+
 plotter.add_text("\nHall Effect Thruster", position="upper_edge", color='white')
 
 # Callback de cierre de ventana
@@ -131,7 +135,10 @@ plotter.add_key_event("space", pausar_simulacion)
 #           5] Animacion
 
 max_particles = num_particles  # Tamaño máximo del buffer
-buffer = np.full((max_particles, 3), np.nan, dtype=np.float32)
+# Crear buffers para iones y neutros
+buffer_ions = np.full((max_particles, 3), np.nan, dtype=np.float32)
+buffer_neutrals = np.full((max_particles, 3), np.nan, dtype=np.float32)
+
 
 for frame in range(num_frames):
     if window_closed:
@@ -145,30 +152,44 @@ for frame in range(num_frames):
 
     frame_data = all_positions[frame]
 
-    # Validación robusta
     if frame_data.shape[1] < 4:
         print(f"⚠️ Frame {frame} inválido, shape: {frame_data.shape}")
-        filtered_points = np.empty((0, 3))
+        ions_points = np.empty((0, 3))
+        neutrals_points = np.empty((0, 3))
     else:
-        mask = frame_data[:, 3] == 1
-        filtered_points = frame_data[mask, :3]
+        mask_ions = frame_data[:, 3] == 1
+        mask_neutrals = frame_data[:, 3] == 0
+        ions_points = frame_data[mask_ions, :3]
+        neutrals_points = frame_data[mask_neutrals, :3]
 
-    # Usar buffer fijo
-    buffer[:] = np.nan  # Reiniciar todo en NaN
-    num_visible = min(len(filtered_points), max_particles)
-    if num_visible > 0:
-        buffer[:num_visible] = filtered_points[:num_visible]
+    # Reset buffers
+    buffer_ions[:] = np.nan
+    buffer_neutrals[:] = np.nan
 
-    # Mostrar u ocultar el actor
-    if num_visible == 0:
-        particle_actor.SetVisibility(False)
+    # Update ions
+    num_ions = min(len(ions_points), max_particles)
+    if num_ions > 0:
+        buffer_ions[:num_ions] = ions_points[:num_ions]
+        ion_actor.SetVisibility(True)
+        ions.points = buffer_ions
+        ion_actor.mapper.dataset.points = ions.points
     else:
-        particle_actor.SetVisibility(True)
-        particles.points = buffer
-        particle_actor.mapper.dataset.points = particles.points
+        ion_actor.SetVisibility(False)
 
+    # Update neutrals
+    num_neutrals = min(len(neutrals_points), max_particles)
+    if num_neutrals > 0:
+        buffer_neutrals[:num_neutrals] = neutrals_points[:num_neutrals]
+        neutral_actor.SetVisibility(True)
+        neutrals.points = buffer_neutrals
+        neutral_actor.mapper.dataset.points = neutrals.points
+    else:
+        neutral_actor.SetVisibility(False)
+
+    #neutral_actor.SetVisibility(False) 
+    #ion_actor.SetVisibility(False)
     plotter.update()
     time.sleep(1 / 50)
-    print(f"\rFrame: {frame + 1}/{num_frames} | Partículas visibles: {num_visible}", end='', flush=True)
+    print(f"\rFrame: {frame + 1}/{num_frames} | Iones: {num_ions} | Neutros: {num_neutrals}", end='', flush=True)
 
 print("\n")

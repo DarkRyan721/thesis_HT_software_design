@@ -3,435 +3,366 @@ from scipy.spatial import cKDTree
 import cupy as cp
 from tqdm import tqdm
 from thermostat import aplicar_termostato
-
 from scipy.spatial import cKDTree
+from MCC import MCC
 
-def actualizar_rho(s, s_label, tree, M, N_real=1e9, V_celda=1e-9):
-    """
-    Calcula la nueva densidad de carga (rho) con base en las posiciones de iones (electrones).
+class PIC():
+    def __init__(self, Rin, Rex, N, L, dt, q_m, alpha, m, sigma_ion):
+        """
+        Aqui se inicializaran todos los parametros geometricos e iniciales para el correcto funcionamiento de PIC.
+
+        Rin -> Radio interno
+        Rex -> Radio externo
+        N -> Numero de particulas
+        L -> Longitud del cilindro
+        dt -> Es el delta de tiempo con el que transcurre la simulacion
+        q_m -> Valor de carga-masa del neutron
+        alpha -> valor de reduccion de velocidad para el termostato
+        m -> masa del neutron
+        E_values -> los valores espaciales del campo electrico [Mx3] -> [Ex, Ey, Ez]
+        B_values -> los valores espaciales del campo magnetico [Mx3] -> [Bx, By, Bz]
+        mesh_nodes -> la posicion espacial de cada nodo de la malla [Mx3] -> [X, Y, Z]
+        tree -> Es un objeto interpolador creado con la libreria scipy
+
+        """
+
+        #___________________________________________________________________________________________
+        #       Inicializacion de variables con valores de entrada
+
+        self.Rin = Rin #[m]
+        self.Rex = Rex #[m]
+        self.N = N #[1]
+        self.L = L #[m]
+        self.dt = dt #[s]
+        self.q_m = q_m #[C/kg]
+        self.alpha = alpha #[1]
+        self.m = m #[kg]
+        self.sigma_ion = sigma_ion #[1]
+
+        #___________________________________________________________________________________________
+        #       Cargando y guardando los valores de Campo Electrico
+
+        E_Field_File = np.load("data_files/Electric_Field_np.npy") # Archivo numpy con E calculado
+
+        self.E_values = E_Field_File[:,3:] #[Mx3]
+        self.mesh_nodes = E_Field_File[:, :3] #[Mx3]
+
+        #___________________________________________________________________________________________
+        #       Cargando y guardando los valores de Campo Magnetico
+
+        B_Field_File = np.load("data_files/Magnetic_Field_np.npy") # Archivo numpy con M calculado
+
+        self.B_values = B_Field_File[:,3:] #[Mx3]
+
+        #___________________________________________________________________________________________
+        #       Cargando y guardando la densidad de electrones inicial
+
+        self.Rho = np.load('data_files/density_n0.npy')
+
+        #___________________________________________________________________________________________
+        #       Creacion de una herramienta de interpolacion para los puntos de los nodos
+
+        self.tree = cKDTree(self.mesh_nodes)
+
+        self.w_ion = 1e6  # Cada ión representa 1 millón de iones reales
+        self.w_neutro = 1e6 
+
+        #___________________________________________________________________________________________
+
+    def initialize_neutros(self):
+        """
+        initialize_particles:
+
+        Funcion encargada de usar la geometria del propulsor(Rin, Rex, L) y generar N particulas en el
+        espacio permitido definido por esta misma geometria. Creara la matriz espacial [s] la cual
+        contiene la posicion espacial de las N particulas. la dimension de [S] es de Nx3
+        """
+
+        #___________________________________________________________________________________________
+        #       Generacion uniforme de valores cilindricos(r, theta, z)
+
+        r = np.sqrt(np.random.uniform(self.Rin**2, self.Rex**2, self.N))
+        theta = np.random.uniform(0, 2*np.pi, self.N)
+        z = np.random.uniform(0, self.L, self.N)
+
+        #___________________________________________________________________________________________
+        #       Conversion a coordenadas cartesianas
+        x = r * np.cos(theta)
+        y = r * np.sin(theta)
+
+        #___________________________________________________________________________________________
+        # Arreglo con coordenadas XYZ en formato Nx3
+
+        self.s = np.vstack((x,y,z)).T.astype(np.float32) #[Nx3]
+
+        #___________________________________________________________________________________________
+
+    def interpolate_to_S(self, s_particle):
+        #___________________________________________________________________________________________
+        #       Busca el punto (idx) mas cercano a la particula (s_particle)
+
+        _, idx = self.tree.query(s_particle.get())
+
+        #___________________________________________________________________________________________
+        #       retorna el valor de campo electrico y magnetico en el punto [idx]
+
+        return self.E_values[idx], self.B_values[idx]
     
-    Args:
-        s (cp.ndarray): Posiciones de partículas Nx3 (en GPU).
-        s_label (cp.ndarray): Etiquetas (N,) → 1 si ionizado, 0 si neutro.
-        s_rho (np.ndarray): Puntos de malla Mx3.
-        tree (cKDTree): Árbol para interpolación.
-        M (int): Número de nodos en la malla.
-        N_real (float): Número de electrones reales representados por cada partícula.
-        V_celda (float): Volumen aproximado de cada celda en m³.
+        #___________________________________________________________________________________________
     
-    Returns:
-        rho (np.ndarray): Densidad de carga actualizada en [C/m³].
-    """
-    q_e = 1.602e-19  # Carga del electrón
+    def initizalize_to_simulation(self, v_neutron, timesteps):
+        #___________________________________________________________________________________________
+        #       Se inicializan las posiciones de los neutrones junto con sus etiquetas
 
-    # Paso 1: Extraer posiciones de partículas ionizadas
-    s_cpu = cp.asnumpy(s)
-    s_label_cpu = cp.asnumpy(s_label)
-    s_ion = s_cpu[s_label_cpu.ravel() == 1]
+        self.initialize_neutros()
 
-    # Paso 2: Asignar al nodo más cercano
-    idxs = tree.query(s_ion)[1]
+        self.s_label = cp.zeros((self.N,1))
 
-    # Paso 3: Contar cuántas partículas caen en cada nodo
-    counts = np.bincount(idxs, minlength=M)
+        #___________________________________________________________________________________________
+        #       Se inicializan las velocidad de los neutrones
+        
+        self.Vz_min = v_neutron - (0.05*v_neutron)
+        self.Vz_max = v_neutron + (0.05*v_neutron)
 
-    # Paso 4: Calcular densidad de carga
-    carga_total = -counts * q_e * N_real
-    rho = carga_total / V_celda  # densidad de carga en C/m³
+        v_z = self.Vz_min + (self.Vz_max - self.Vz_min) * np.random.rand(self.N).astype(np.float32) #[m/s]
+        v_x = np.zeros_like(v_z) #[m/s]
+        v_y = np.zeros_like(v_z) #[m/s]
 
-    return rho
+        self.v = np.vstack((v_x, v_y, v_z)).T #[m/s] 
 
+        #___________________________________________________________________________________________
+        #       Se establecen la cantidad de frames y se crea la variable del renderizado
 
-def ionizacion(S, v, s_label, s_rho, rho, sigma_ion, dt):
-    """
-    Versión vectorizada y optimizada del proceso de ionización.
+        self.timesteps = timesteps #[1]
+        self.all_positions = np.zeros((timesteps, self.N, 4), dtype=np.float32)
 
-    S, v, s_label deben ser CuPy arrays.
-    s_rho y rho deben estar en NumPy (malla original), como se usan en KDTree.
-    """
-    N_real = 1e6  # escalamiento PIC
+        #___________________________________________________________________________________________
 
-    # Pasar a NumPy (solo para cKDTree)
-    S_cpu = cp.asnumpy(S)
+    def actualizar_rho(self):
+        """
+        Actualiza la densidad de electrones (rho) basada en la distribución actual
+        de partículas ionizadas en la malla.
+        """
+        s_cpu = cp.asnumpy(self.s)
+        s_label_cpu = cp.asnumpy(self.s_label.ravel())
 
-    # Paso 1: Encontrar el punto más cercano de la malla a cada partícula
-    tree = cKDTree(s_rho)
-    _, idxs = tree.query(S_cpu)  # idxs.shape = (N,)
+        _, idxs = self.tree.query(s_cpu)
 
-    # Paso 2: Obtener rho en cada punto de partícula
-    rho_part = rho[idxs]  # NumPy, carga [C/m^3]
+        # Creamos pesos: 0 si neutro, w_ion si ionizado
+        pesos = np.where(s_label_cpu == 1, self.w_ion, 0.0)
 
-    # Paso 3: Convertir a densidad numérica de electrones
-    n_e = -rho_part  # partículas/m³
+        # Usamos np.bincount para sumar pesos en cada nodo
+        nuevo_rho = np.bincount(idxs, weights=pesos, minlength=len(self.mesh_nodes))
 
-    # Paso 4: Pasar a CuPy para seguir con operaciones vectorizadas
-    n_e_cp = cp.asarray(n_e)
-    v_mag = cp.linalg.norm(v, axis=1)
+        # Actualizamos rho correctamente
+        self.Rho_end = self.Rho + nuevo_rho
 
-    # Paso 5: Calcular P_ion para todas
-    nu_ion = n_e_cp * sigma_ion * v_mag
-    P_ion = 1 - cp.exp(-nu_ion * dt)
+        print("Nueva rho promedio:", np.mean(self.Rho_end))
 
-    # Paso 6: Generar números aleatorios y decidir cambios
-    aleatorios = cp.random.rand(len(S))
-    ocurren = aleatorios < P_ion
+    def move_particles(self):
+        #___________________________________________________________________________________________
+        #       Se ionizan y neutralizan particulas
 
-    # Paso 7: Cambiar etiquetas solo donde ocurren
-    s_label[ocurren] = 1 - s_label[ocurren]
+        self.s_label = MCC(s=self.s, v=self.v, s_label=self.s_label, rho=self.Rho, sigma_ion=self.sigma_ion, dt=self.dt, tree=self.tree)
 
-    return s_label
+        print(cp.sum(self.s_label == 1)) #BORRAR
 
-#_____________________________________________________________________________________________________
-#               1] Funcion para distribuir particulas por el espacio de manera cilindrica
+        self.actualizar_rho()
 
-"""
-    initialize_particles:
+        #___________________________________________________________________________________________
+        #       Se filtran los iones. Unicos afectados por campo electrico y magnetico
 
-    Funcion encargada de recibir la geometria del cilindro(Rin, Rex, L) y generar N particulas en el
-    espacio permitido definido por esta misma geometria.
+        mask_ion = (self.s_label.ravel() == 1)
+        s_ion = self.s[mask_ion]
 
-    N -> Numero de particulas
-    Rin -> Radio interno
-    Rex -> Radio externo
-    L -> Longitud del cilindro
-"""
-def initialize_particles(N, Rin, Rex, L):
-    
-    # Generacion uniforme de valores cilindricos(r, theta, z)
-    r = np.sqrt(np.random.uniform(Rin**2, Rex**2, N))
-    theta = np.random.uniform(0, 2*np.pi, N)
-    z = np.random.uniform(0, L, N)
+        #___________________________________________________________________________________________
+        #       Se obtienen los valores de campo electrico y magnetico para las particulas
 
-    # Conversion a coordenadas cartesianas
-    x = r * np.cos(theta)
-    y = r * np.sin(theta)
+        E, B = self.interpolate_to_S(s_ion)
+        E = cp.asarray(E)
 
-    # Arreglo con coordenadas XYZ en formato Nx3
-    s = np.vstack((x,y,z)).T.astype(np.float32)
+        #___________________________________________________________________________________________
+        #       Se aplican las ecuaciones de PIC para la dinamica de las particulas
 
-    return s
+        self.v[mask_ion] += self.q_m * (E) * self.dt
 
-#_____________________________________________________________________________________________________
-#               2] Tratamiento del campo electrico calculado con LaPlace
+        self.s += self.v * self.dt
 
-E_Field_File = np.load("data_files/Electric_Field_np.npy") # Archivo numpy con E calculado
-M_Field_File = np.load("data_files/Magnetic_Field_np.npy") # Archivo numpy con M calculado
+        #___________________________________________________________________________________________
+        #       Se aplican las colisiones elasticas con la estructura del propulsor
 
-"""
-    Interpolator_Electric_Field:
+        r_collision = cp.sqrt(self.s[:, 0]**2 + self.s[:, 1]**2)
 
-    Mediante E_Field_File que es el campo electrico generado con LaPlace, se crean 4 variables de
-    interpolacion las cuales son Ex_values, Ey_values, Ez_values y tree. Estas ultima es creada 
-    con cKDTree, un metodo desarrollado precisamente para encontrar el valor numerico de un campo 
-    en un punto arbitrario de su espacio. Con esto nos sera sencillo asociar un valor de campo 
-    electrico a una particula en el punto (X,Y,Z) cualquiera.
+        # Mascara para vigilar colisiones con el cilindro
+        mask_collision = ((r_collision >= (self.Rex)) | (r_collision <= (self.Rin))) & (self.s[:, 2] > 0) & (self.s[:, 2] <= self.L)
 
-    Interpolate_E:
+        num_collisions = int(cp.sum(mask_collision).item()) 
 
-    Recibe la posicion [s] de una particula y en base a las 4 variables de interpolacion retorna
-    un valor E correspondiente al campo electrico asociado a esa particula
+        if num_collisions > 0:
+            #___________________________________________________________________________________________
+            #       Velocidad antes de la colisión
 
-    E_Field_File -> Campo electrico resultado de Laplace_E_Solution.py
-"""
+            v_before = self.v[mask_collision]
 
-def Interpolator_Electric_Field(E_Field_File):
+            #___________________________________________________________________________________________
+            #       Vector normal unitario (radial hacia afuera)
 
-    # Extrayendo las coordenadas espaciales(X,Y,Z) del campo electrico
-    points = E_Field_File[:, :3]
+            normal_vector = cp.zeros_like(v_before)
+            normal_vector[:, 0] = self.s[mask_collision, 0] / r_collision[mask_collision]
+            normal_vector[:, 1] = self.s[mask_collision, 1] / r_collision[mask_collision]
+            normal_vector[:, 2] = 0
 
-    # Extrayendo los valores del campo electrico en cada eje coordenado
-    Ex_values = E_Field_File[:, 3]  # Campo Ex
-    Ey_values = E_Field_File[:, 4]  # Campo Ey
-    Ez_values = E_Field_File[:, 5]  # Campo Ez
+            #___________________________________________________________________________________________
+            #       Proyección de la velocidad en la dirección normal
 
-    # Creando la funcion de interpolacion para cada campo electrico(Ex, Ey, Ez)
-    tree = cKDTree(points)
+            v_normal = cp.sum(v_before * normal_vector, axis=1, keepdims=True) * normal_vector
+            v_tangencial = v_before - v_normal
 
-    return tree, Ex_values, Ey_values, Ez_values
+            #___________________________________________________________________________________________
+            #       Calcular velocidades despues de colision (con α asignado)
+            v_after_collision = v_tangencial - self.alpha * v_normal
 
-def Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s):
+            #___________________________________________________________________________________________
+            #       Calculo de energia cinetica antes y despues
+            E_before = 0.5 * self.m * cp.sum(v_before**2, axis=1)
+            E_after = 0.5 * self.m * cp.sum(v_after_collision**2, axis=1)
 
-    # Busca el indice(idx) del campo electrico correspondiente al punto [s]
-    _, idx = tree.query(s.get())
+            delta_E = E_before - E_after
 
-    # Obtener los valores de Ex, Ey, Ez segun el indice [idx]
-    Ex = Ex_values[idx]
-    Ey = Ey_values[idx]
-    Ez = Ez_values[idx]
+            #___________________________________________________________________________________________
+            #       Uso del termostato
 
-    # retorna el campo electrico en un solo vector/matriz transpuesto
-    return np.vstack((Ex, Ey, Ez)).T 
+            lambda_value, temp_aux = aplicar_termostato(delta_E, num_collisions, self.dt, 100, 300, 8.617e-23)
 
-def Interpolator_Magnetic_Field(M_Field_File):
+            v_final_mag = v_before * lambda_value.reshape(-1, 1)
 
-    # Extrayendo las coordenadas espaciales(X,Y,Z) del campo electrico
-    points = M_Field_File[:, :3]
+            self.temp.append(temp_aux)
 
-    # Extrayendo los valores del campo electrico en cada eje coordenado
-    Ex_values = M_Field_File[:, 3]  # Campo Ex
-    Ey_values = M_Field_File[:, 4]  # Campo Ey
-    Ez_values = M_Field_File[:, 5]  # Campo Ez
+            v_final_mag = cp.sqrt(cp.sum(v_after_collision**2, axis=1))
 
-    # Creando la funcion de interpolacion para cada campo electrico(Ex, Ey, Ez)
-    tree = cKDTree(points)
+            #___________________________________________________________________________________________
+            #       Correccion de las direcciones
 
-    return tree, Ex_values, Ey_values, Ez_values
+            v_direction = v_after_collision / cp.linalg.norm(v_after_collision, axis=1, keepdims=True)
+            v_corrected = v_direction * v_final_mag[:, cp.newaxis]
 
-def Interpolate_M(tree, Mx_values, My_values, Mz_values, s):
+            #___________________________________________________________________________________________
+            #       Actualizacion de la velocidad tras la colisión
 
-    # Busca el indice(idx) del campo electrico correspondiente al punto [s]
-    _, idx = tree.query(s.get())
+            self.v[mask_collision] = v_corrected
 
-    # Obtener los valores de Ex, Ey, Ez segun el indice [idx]
-    Mx = Mx_values[idx]
-    My = My_values[idx]
-    Mz = Mz_values[idx]
+            #___________________________________________________________________________________________
+            #       Mover la partícula de vuelta a la frontera
 
-    # retorna el campo electrico en un solo vector/matriz transpuesto
-    return np.vstack((Mx, My, Mz)).T 
+            r_exceso = r_collision[mask_collision] - self.Rex
 
-#_____________________________________________________________________________________________________
-#               3] Parámetros de simulación
+            self.s[mask_collision, 0] -= r_exceso * normal_vector[:, 0]
+            self.s[mask_collision, 1] -= r_exceso * normal_vector[:, 1]
 
-N = 1000000 # Número de partículas
-dt = 0.000000001   # Delta de tiempo
-q_m = 7.35e5 # Valor Carga/Masa
-m = 2.18e-25
+        #___________________________________________________________________________________________
+        #       Mascara que define los limites de simulacion
 
-#Lectura de parametro geometricos (Archivo txt)
-def leer_datos_archivo(ruta_archivo):
-    datos = {}
-    with open(ruta_archivo, "r") as archivo:
-        for linea in archivo:
-            # Verificamos que la línea contenga ':'
-            if ":" in linea:
-                clave, valor = linea.split(":", maxsplit=1)
-                # Limpiamos espacios
-                clave = clave.strip()
-                valor = valor.strip()
-                # Almacenar en el diccionario (conversión a entero o float)
-                datos[clave] = float(valor)
-    return datos
-ruta = "data_files/geometry_parameters.txt"
-info = leer_datos_archivo(ruta)
+        mask_out = (self.s[:, 0] < -3*self.Rex) | (self.s[:, 0] > 3*self.Rex) | \
+                (self.s[:, 1] < -3*self.Rex) | (self.s[:, 1] > 3*self.Rex) | \
+                (self.s[:, 2] < 0) | (self.s[:, 2] > 5*self.Rex)
+        
+        num_reinsert = int(cp.sum(mask_out).item()) 
+        
+        if num_reinsert > 0:
+            #___________________________________________________________________________________________
+            #       Generamos nuevas posiciones en el cilindro en (X,Y)
 
-Rin = info.get("radio_interno",0) # Radio interno del cilindro hueco
-Rex = info.get("radio_externo",0) # Primer radio externo del cilindro hueco
-L = info.get("profundidad",0) # Longitud del cilindro
+            r_new = cp.sqrt(cp.random.uniform(self.Rin**2, self.Rex**2, num_reinsert))
+            theta_new = cp.random.uniform(0, 2*cp.pi, num_reinsert)
 
-tree, Ex_values, Ey_values, Ez_values = Interpolator_Electric_Field(E_Field_File)  # Campo eléctrico y su interpolador
-tree_m, Mx_values, My_values, Mz_values = Interpolator_Magnetic_Field(M_Field_File)
+            #___________________________________________________________________________________________
+            #       Pasamos a coordenadas cartesianas
 
-#_____________________________________________________________________________________________________
-#               4] Inicialización de partículas (posición y velocidad)
+            x_new = r_new * cp.cos(theta_new)
+            y_new = r_new * cp.sin(theta_new)
+            z_new = cp.full(num_reinsert, 0, dtype=cp.float32)
 
-s = initialize_particles(N, Rin=Rin, Rex=Rex, L=L)  # Posiciones iniciales
-s_label = cp.ones((N,1))
+            #___________________________________________________________________________________________
+            #       Asignamos las nuevas posiciones
 
-# Definicion de velocidades con limites en cada eje
-Vx_min, Vx_max = -0, 0
-Vy_min, Vy_max = -0, 0
-Vz_min, Vz_max = 0.0, 200.0
+            self.s[mask_out, 0] = x_new
+            self.s[mask_out, 1] = y_new
+            self.s[mask_out, 2] = z_new
 
-v_x = Vx_min + (Vx_max - Vx_min) * np.random.rand(N).astype(np.float32)
-v_y = Vy_min + (Vy_max - Vy_min) * np.random.rand(N).astype(np.float32)
-v_z = Vz_min + (Vz_max - Vz_min) * np.random.rand(N).astype(np.float32)
+            #___________________________________________________________________________________________
+            #       Asignamos nuevas velocidades aleatorias
 
-v = np.vstack((v_x, v_y, v_z)).T  # Juntamos los valores en una matriz Nx3
+            v_z_new = self.Vz_min + (self.Vz_max - self.Vz_min) * cp.random.rand(num_reinsert).astype(cp.float32)
+            v_x_new = cp.zeros_like(v_z_new)
+            v_y_new = cp.zeros_like(v_z_new)
 
-#_____________________________________________________________________________________________________
-#               5] Parametros de simulacion
+            #___________________________________________________________________________________________
+            #       Juntamos las velocidades en una matriz (num_reinsert, 3)
 
-timesteps = 500  # Número de frames de la animación
+            v_new = cp.column_stack((v_x_new, v_y_new, v_z_new))
 
-# Inicializar almacenamiento de datos
-all_positions = np.zeros((timesteps, N, 4), dtype=np.float32)
+            #___________________________________________________________________________________________
+            #       Asignamos las nuevas velocidades a las partículas reinsertadas
 
-#_____________________________________________________________________________________________________
-#               6] Función para mover partículas
+            self.v[mask_out] = v_new
 
-# Se obtiene el campo electrico(por ahora constante)
+    def render(self):
+        self.s = cp.array(self.s)
+        self.v = cp.array(self.v)
 
-# Se pasan las variables (s,v,E) a la GPU
-s_gpu = cp.array(s)
-v_gpu = cp.array(v)
-sigma_ion = 1e-20
-s_rho =  E_Field_File[:, :3]
-rho = np.load('data_files/density_n0.npy')
+        self.temp = []
 
-Temp = []
+        print("Ejecutando simulación y guardando datos...")
+        for t in tqdm(range(self.timesteps), desc="Progreso"):
 
-def move_particles(s, v, dt, q_m, s_label):
-    global rho
-    # mask_B = (s[:, 2] >= 0) & (s[:, 2] <= (1.1*L))
-    # B = Interpolate_M(tree_m, Mx_values, My_values, Mz_values, s[mask_B])
+            # Funcion de movimiento
+            self.move_particles()
 
-    # F_Lorentz_filtered = cp.cross(v[mask_B], B)
+            # Conversion de [s] a datos de CPU(numpy) nuevamente
+            s_np = cp.asnumpy(self.s)
+            s_label_np = self.s_label.get()
+            combined = np.concatenate((s_np, s_label_np), axis=1)
 
-    # # Opcional: Asignar los resultados a un arreglo completo
-    # F_Lorentz = cp.zeros_like(v)
-    # F_Lorentz[mask_B] = F_Lorentz_filtered
+            # Guardar la posición de las partículas en este frame
+            self.all_positions[t] = combined
 
-    # # Cálculo optimizado de la Fuerza de Lorentz
-    # mask_E = (s[:, 2] >= 0) & (s[:, 2] <= L)  # Máscara para partículas en el rango [0, L] en x
-    # E_filtered = Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s[mask_E])
-    # E = cp.zeros_like(v)
-    # E[mask_E] = E_filtered
-    # Máscara para partículas ionizadas (s_label == 1)
-    mask_ion = (s_label.ravel() == 1)
+        # Guardar el archivo con todas las posiciones simuladas
+        np.save("data_files/particle_simulation.npy", self.all_positions)
+        print("Simulación guardada exitosamente en 'particle_simulation.npy'")
 
-    # Solo calcular campo en los iones
-    s_ion = s[mask_ion]
-    E_ion = Interpolate_E(tree, Ex_values, Ey_values, Ez_values, s_ion)
-    E_ion = cp.asarray(E_ion)
+        np.save("data_files/density_end.npy", self.Rho_end)
 
-    # Actualización de velocidad solo para iones
-    v[mask_ion] += q_m * E_ion * dt
+if __name__ == "__main__":
+    N = 10000
+    dt = 0.000000001
+    q_m = 7.35e5
+    m = 2.18e-25
+    alpha = 0.9
+    frames = 500
+    sigma_ion = 1e-13
 
-    # Actualización de posición para todas (ión y neutro)
-    s += v * dt
+    def leer_datos_archivo(ruta_archivo):
+        datos = {}
+        with open(ruta_archivo, "r") as archivo:
+            for linea in archivo:
+                # Verificamos que la línea contenga ':'
+                if ":" in linea:
+                    clave, valor = linea.split(":", maxsplit=1)
+                    # Limpiamos espacios
+                    clave = clave.strip()
+                    valor = valor.strip()
+                    # Almacenar en el diccionario (conversión a entero o float)
+                    datos[clave] = float(valor)
+        return datos
+    ruta = "data_files/geometry_parameters.txt"
+    info = leer_datos_archivo(ruta)
 
-    s_label = ionizacion(s, v, s_label, s_rho, rho, sigma_ion, dt)
+    Rin = info.get("radio_interno",0) # Radio interno del cilindro hueco
+    Rex = info.get("radio_externo",0) # Primer radio externo del cilindro hueco
+    L = info.get("profundidad",0) # Longitud del cilindro
 
-    # tree_rho = cKDTree(s_rho)
+    pic = PIC(Rin=Rin, Rex=Rex, N=N, L=L, dt=dt, q_m=q_m, alpha=alpha, m=m, sigma_ion=sigma_ion)
 
-    # rho += actualizar_rho(s, s_label, tree_rho, M=len(s_rho))  # V es volumen de celda
-    
-    #num_neutrones = np.sum(s_label == 1)
-    #print(num_neutrones)
+    pic.initizalize_to_simulation(v_neutron=200, timesteps=frames)
 
-    # Mascara para vigilar colisiones en el cilindro
-    r_collision = cp.sqrt(s[:, 0]**2 + s[:, 1]**2)
-    mask_collision = ((r_collision >= (Rex)) | (r_collision <= (Rin))) & (s[:, 2] > 0) & (s[:, 2] <= L)
-    num_collisions = int(cp.sum(mask_collision).item()) 
-
-    if num_collisions > 0:
-        # Velocidad antes de la colisión
-        v_before = v[mask_collision]
-
-        # Vector normal unitario (radial hacia afuera)
-        normal_vector = cp.zeros_like(v_before)
-        normal_vector[:, 0] = s[mask_collision, 0] / r_collision[mask_collision]
-        normal_vector[:, 1] = s[mask_collision, 1] / r_collision[mask_collision]
-        normal_vector[:, 2] = 0  # componente axial es cero para pared lateral cilindrica
-
-        # Proyección de la velocidad en la dirección normal
-        v_normal = cp.sum(v_before * normal_vector, axis=1, keepdims=True) * normal_vector
-        v_tangencial = v_before - v_normal
-
-        # Calcular velocidades despues de colision (con α dado por tu compañero)
-        alpha = 0.9  # ejemplo, recibelo de tu compañero o definelo externamente
-        v_after_collision = v_tangencial - alpha * v_normal
-
-        # Calculo de energia cinetica antes y despues
-        E_before = 0.5 * m * cp.sum(v_before**2, axis=1)
-        E_after = 0.5 * m * cp.sum(v_after_collision**2, axis=1)
-        delta_E = E_before - E_after  # Esto es lo que envias al termostato
-
-        lambda_value, temp_aux = aplicar_termostato(delta_E, num_collisions, dt, 100, 300, 8.617e-23)
-        v_final_mag = v_before * lambda_value.reshape(-1, 1)
-        Temp.append(temp_aux)
-        # (Aquí envías delta_E a tu compañero y recibes la nueva magnitud |v_final|)
-        # Ejemplo simulado:
-        v_final_mag = cp.sqrt(cp.sum(v_after_collision**2, axis=1))  # Temporal
-        # Real: v_final_mag = funcion_termostato(delta_E)
-
-        # Corriges dirección (mantienes dirección calculada pero ajustas magnitud recibida)
-        v_direction = v_after_collision / cp.linalg.norm(v_after_collision, axis=1, keepdims=True)
-        v_corrected = v_direction * v_final_mag[:, cp.newaxis]
-
-        # Actualizas velocidad tras la colisión
-        v[mask_collision] = v_corrected
-
-        r_exceso = r_collision[mask_collision] - Rex
-
-        # 2) Mover la partícula de vuelta a la frontera
-        #    Restando ese exceso en la dirección normal.
-        s[mask_collision, 0] -= r_exceso * normal_vector[:, 0]
-        s[mask_collision, 1] -= r_exceso * normal_vector[:, 1]
-
-    # Mascara que define los limites de simulacion [0,0,0] ^ [120,120,180]
-    mask_out = (s[:, 0] < -3*Rex) | (s[:, 0] > 3*Rex) | \
-               (s[:, 1] < -3*Rex) | (s[:, 1] > 3*Rex) | \
-               (s[:, 2] < 0) | (s[:, 2] > 5*Rex)
-    
-    # Cantidad de particulas que deben re ingresar al sistema
-    num_reinsert = int(cp.sum(mask_out).item()) 
-    
-    if num_reinsert > 0:
-
-        # Generamos nuevas posiciones en el cilindro en (X,Y)
-        r_new = cp.sqrt(cp.random.uniform(Rin**2, Rex**2, num_reinsert))
-        theta_new = cp.random.uniform(0, 2*cp.pi, num_reinsert)
-
-        # Pasamos a coordenadas cartesianas
-        x_new = r_new * cp.cos(theta_new)
-        y_new = r_new * cp.sin(theta_new)
-        z_new = cp.full(num_reinsert, 0, dtype=cp.float32)  # Z siempre en 180
-
-        # Asignamos las nuevas posiciones
-        s[mask_out, 0] = x_new
-        s[mask_out, 1] = y_new
-        s[mask_out, 2] = z_new
-
-        # Asignamos nuevas velocidades aleatorias
-        v_x_new = Vx_min + (Vx_max - Vx_min) * cp.random.rand(num_reinsert).astype(cp.float32)
-        v_y_new = Vy_min + (Vy_max - Vy_min) * cp.random.rand(num_reinsert).astype(cp.float32)
-        v_z_new = Vz_min + (Vz_max - Vz_min) * cp.random.rand(num_reinsert).astype(cp.float32)
-
-        # Juntamos las velocidades en una matriz (num_reinsert, 3)
-        v_new = cp.column_stack((v_x_new, v_y_new, v_z_new))
-
-        # Asignamos las nuevas velocidades a las partículas reinsertadas
-        v[mask_out] = v_new
-    
-    # Retornamos la posicion espacial de las particulas para ser almacenadas
-    return s, s_label
-
-#_____________________________________________________________________________________________________
-#               7] Simulacion y proceso de renderizado
-
-# Ejecutar la simulación y guardar datos con barra de progreso
-print("Ejecutando simulación y guardando datos...")
-for t in tqdm(range(timesteps), desc="Progreso"):
-
-    # Funcion de movimiento
-    s, s_label = move_particles(s_gpu, v_gpu, dt, q_m, s_label)
-
-    # Conversion de [s] a datos de CPU(numpy) nuevamente
-    s_np = cp.asnumpy(s)
-    s_label_np = s_label.get()
-    combined = np.concatenate((s_np, s_label_np), axis=1)
-
-    # Guardar la posición de las partículas en este frame
-    all_positions[t] = combined  
-
-# Guardar el archivo con todas las posiciones simuladas
-np.save("data_files/particle_simulation.npy", all_positions)
-print("Simulación guardada exitosamente en 'particle_simulation.npy'")
-
-np.save("data_files/rho_2.npy", rho)
-
-# import mplcursors
-
-# N_graph = len(Temp)
-# tiempo = np.arange(N_graph) * dt
-
-# fig, ax = plt.subplots(figsize=(9, 5))
-# line, = ax.plot(tiempo, Temp, marker='o', markersize=3, linewidth=1.5)
-
-# ax.set_xlabel('Tiempo [s]')
-# ax.set_ylabel('Temperatura [K]')
-# ax.set_title('Temperatura vs Tiempo')
-# ax.grid(True)
-
-# # Activar cursor interactivo para mostrar valores
-# cursor = mplcursors.cursor(line, hover=True)
-
-# # Formato del texto emergente
-# @cursor.connect("add")
-# def on_hover(sel):
-#     sel.annotation.set(text=f'Tiempo: {sel.target[0]:.2f}s\nTemperatura: {sel.target[1]:.4f} K')
-
-# plt.tight_layout()
-# plt.show()
+    pic.render()

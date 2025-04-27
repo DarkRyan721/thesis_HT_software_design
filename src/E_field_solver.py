@@ -11,6 +11,8 @@ import ufl
 from dolfinx.fem.petsc import LinearProblem
 from petsc4py import PETSc
 from ufl import grad, inner, dx, exp, SpatialCoordinate
+import numpy as np
+import pyvista as pv
 
 class ElectricFieldSolver:
     def __init__(self, mesh_file="SimulationZone.xdmf", mesh_folder="data_files"):
@@ -156,3 +158,38 @@ class ElectricFieldSolver:
         E_np = np.hstack((X, E_values))
         np.save(filename, E_np)
         print(f"Electric field saved to {filename}")
+
+    def plot_E_Field(self):
+        # Cargar datos
+        E_np = np.load('Electric_Field_np.npy')
+        points = E_np[:, :3]  # X, Y, Z
+        vectors = E_np[:, 3:]  # Ex, Ey, Ez
+
+        # Calcular la magnitud para el mapa de calor
+        magnitudes = np.linalg.norm(vectors, axis=1)
+        log_magnitudes = np.log10(magnitudes + 1e-3)  # Evitamos log(0)
+
+        # Crear un objeto PolyData
+        mesh = pv.PolyData(points)
+
+        # Añadir los vectores al objeto
+        mesh["vectors"] = vectors
+        mesh["magnitude"] = log_magnitudes
+
+        # Crear un glyph (flecha por vector)
+        glyphs = mesh.glyph(orient="vectors", scale=False, factor=0.0025)
+
+        # Crear el plotter
+        plotter = pv.Plotter()
+        plotter.set_background("white")
+        plotter.add_mesh(glyphs, scalars="magnitude", cmap="plasma")
+        #plotter.add_scalar_bar(title="|E| [V/m]", vertical=True)
+        plotter.add_axes()
+        plotter.add_title("Campo Eléctrico - Dirección y Magnitud")
+
+        plotter.show()
+
+if __name__ == "__main__":
+    E_field = ElectricFieldSolver()
+
+    E_field.plot_E_Field()
