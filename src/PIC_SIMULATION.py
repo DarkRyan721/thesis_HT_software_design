@@ -110,8 +110,16 @@ ions = pv.PolyData(ions_points)
 neutrals = pv.PolyData(neutrals_points)
 
 # Añadir iones y neutros al plotter con diferentes colores
-ion_actor = plotter.add_mesh(ions, color='deepskyblue', point_size=1.7, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
-neutral_actor = plotter.add_mesh(neutrals, color='red', point_size=1.7, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
+if ions.n_points > 0:
+    ion_actor = plotter.add_mesh(ions, color='deepskyblue', point_size=1.7, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
+else:
+    ion_actor = None  # No hay iones en el primer frame
+
+if neutrals.n_points > 0:
+    neutral_actor = plotter.add_mesh(neutrals, color='red', point_size=1.7, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
+else:
+    neutral_actor = None  # No hay neutrales en el primer frame
+
 
 plotter.add_text("\nHall Effect Thruster", position="upper_edge", color='white')
 
@@ -168,23 +176,27 @@ for frame in range(num_frames):
 
     # Update ions
     num_ions = min(len(ions_points), max_particles)
-    if num_ions > 0:
-        buffer_ions[:num_ions] = ions_points[:num_ions]
-        ion_actor.SetVisibility(True)
-        ions.points = buffer_ions
-        ion_actor.mapper.dataset.points = ions.points
-    else:
-        ion_actor.SetVisibility(False)
+
+    if ion_actor is not None:
+        if num_ions > 0:
+            buffer_ions[:num_ions] = ions_points[:num_ions]
+            ion_actor.SetVisibility(True)
+            ions.points = buffer_ions
+            ion_actor.mapper.dataset.points = ions.points
+        else:
+            ion_actor.SetVisibility(False)
 
     # Update neutrals
     num_neutrals = min(len(neutrals_points), max_particles)
-    if num_neutrals > 0:
-        buffer_neutrals[:num_neutrals] = neutrals_points[:num_neutrals]
-        neutral_actor.SetVisibility(True)
-        neutrals.points = buffer_neutrals
-        neutral_actor.mapper.dataset.points = neutrals.points
-    else:
-        neutral_actor.SetVisibility(False)
+
+    if neutral_actor is not None:
+        if num_neutrals > 0:
+            buffer_neutrals[:num_neutrals] = neutrals_points[:num_neutrals]
+            neutral_actor.SetVisibility(True)
+            neutrals.points = buffer_neutrals
+            neutral_actor.mapper.dataset.points = neutrals.points
+        else:
+            neutral_actor.SetVisibility(False)
 
     #neutral_actor.SetVisibility(False) 
     #ion_actor.SetVisibility(False)
