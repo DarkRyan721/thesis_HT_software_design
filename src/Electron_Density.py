@@ -7,16 +7,16 @@ import pyvista as pv
 from dolfinx.geometry import BoundingBoxTree, compute_colliding_cells
 
 
-def generate_density(domain, rho_value = 3e8, R=0.035, z0=0.017, sigma=0.01, epsilon_0=8.854e-12):
+def generate_density(domain, n0 = 3e19, R=0.035, z0=0.013, sigma=0.008):
     """
-    Genera la densidad de carga inicial n0 usando una distribución gaussiana tipo anillo.
+    Genera la densidad de electrones inicial n0 usando una distribución gaussiana tipo anillo.
 
     Parámetros:
     -----------
     domain : dolfinx.mesh.Mesh
         Malla cargada en FEniCSx.
     rho_value : float
-        Carga total deseada [C/m^3].
+        Carga total deseada [#particulas/m^3].
     R : float
         Radio medio del anillo [m].
     z0 : float
@@ -37,7 +37,7 @@ def generate_density(domain, rho_value = 3e8, R=0.035, z0=0.017, sigma=0.01, eps
     # Distribución gaussiana tipo anillo
     r = sqrt(x[0]**2 + x[1]**2)
     dist_sq = (r - R)**2 + (x[2] - z0)**2
-    ring_expr = (rho_value / epsilon_0) * exp(-dist_sq / (2 * sigma**2))
+    ring_expr = (n0) * exp(-dist_sq / (2 * sigma**2))
 
     # Interpolación de la densidad de carga
     n0 = fem.Function(V)
@@ -104,8 +104,6 @@ if __name__ == "__main__":
 
     # Generar la densidad de carga inicial
     n0 = generate_density(domain)
-
-    # # Plotear la densidad de carga
 
     # # Guardar la densidad de carga
     save_density(n0)

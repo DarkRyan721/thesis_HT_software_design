@@ -59,12 +59,14 @@ class PIC():
 
         self.Rho = np.load('data_files/density_n0.npy')
 
+        self.Rho_end = self.Rho
+
         #___________________________________________________________________________________________
         #       Creacion de una herramienta de interpolacion para los puntos de los nodos
 
         self.tree = cKDTree(self.mesh_nodes)
 
-        self.w_ion = 1e6  # Cada ión representa 1 millón de iones reales
+        self.w_ion = (7.75e13/self.N)
         self.w_neutro = 1e6 
 
         #___________________________________________________________________________________________
@@ -157,13 +159,13 @@ class PIC():
         # Actualizamos rho correctamente
         self.Rho_end = self.Rho + nuevo_rho
 
-        print("Nueva rho promedio:", np.mean(self.Rho_end))
+        #print("Nueva rho promedio:", np.mean(self.Rho_end))
 
     def move_particles(self):
         #___________________________________________________________________________________________
         #       Se ionizan y neutralizan particulas
 
-        self.s_label = MCC(s=self.s, v=self.v, s_label=self.s_label, rho=self.Rho, sigma_ion=self.sigma_ion, dt=self.dt, tree=self.tree)
+        self.s_label = MCC(s=self.s, v=self.v, s_label=self.s_label, rho=self.Rho_end, sigma_ion=self.sigma_ion, dt=self.dt, tree=self.tree)
 
         print(cp.sum(self.s_label == 1)) #BORRAR
 
@@ -181,10 +183,12 @@ class PIC():
         E, B = self.interpolate_to_S(s_ion)
         E = cp.asarray(E)
 
+        F_Lorentz = cp.cross(self.v[mask_ion], B)
+
         #___________________________________________________________________________________________
         #       Se aplican las ecuaciones de PIC para la dinamica de las particulas
 
-        self.v[mask_ion] += self.q_m * (E) * self.dt
+        self.v[mask_ion] += self.q_m * (E+F_Lorentz) * self.dt
 
         self.s += self.v * self.dt
 
@@ -262,12 +266,12 @@ class PIC():
         #___________________________________________________________________________________________
         #       Mascara que define los limites de simulacion
 
-        mask_out = (self.s[:, 0] < -3*self.Rex) | (self.s[:, 0] > 3*self.Rex) | \
-                (self.s[:, 1] < -3*self.Rex) | (self.s[:, 1] > 3*self.Rex) | \
-                (self.s[:, 2] < 0) | (self.s[:, 2] > 5*self.Rex)
+        mask_out = (self.s[:, 0] < -0.187) | (self.s[:, 0] > 0.187) | \
+                (self.s[:, 1] < -0.187) | (self.s[:, 1] > 0.187) | \
+                (self.s[:, 2] < 0) | (self.s[:, 2] > 0.2)
         
-        num_reinsert = int(cp.sum(mask_out).item()) 
-        
+        num_reinsert = int(cp.sum(mask_out).item())
+
         if num_reinsert > 0:
             #___________________________________________________________________________________________
             #       Generamos nuevas posiciones en el cilindro en (X,Y)
@@ -305,6 +309,25 @@ class PIC():
             #       Asignamos las nuevas velocidades a las partículas reinsertadas
 
             self.v[mask_out] = v_new
+            self.s_label[mask_out] = 0
+        
+        mask_ion = (self.s_label.ravel() == 1) # donde ION_ID es el valor que usas para los iones
+
+        v_ion = self.v[mask_ion]
+
+        v_mag = np.sqrt(v_ion[:,0]**2 + v_ion[:,1]**2 + v_ion[:,2]**2)
+
+        # Valor mínimo
+        v_min = cp.min(v_mag)
+
+        # Valor máximo
+        v_max = cp.max(v_mag)
+
+        # Si quieres imprimirlos como números normales (en CPU):
+        print(f"v_min = {v_min.item()} m/s")
+        print(f"v_max = {v_max.item()} m/s")
+
+        print("Impulso Especifico: ", cp.mean(v_mag)/9.81)
 
     def render(self):
         self.s = cp.array(self.s)
@@ -330,10 +353,10 @@ class PIC():
         np.save("data_files/particle_simulation.npy", self.all_positions)
         print("Simulación guardada exitosamente en 'particle_simulation.npy'")
 
-        np.save("data_files/density_end.npy", self.Rho_end)
+        #np.save("data_files/density_end.npy", self.Rho_end)
 
 if __name__ == "__main__":
-    N = 10000
+    N = 100000
     dt = 0.000000001
     q_m = 7.35e5
     m = 2.18e-25

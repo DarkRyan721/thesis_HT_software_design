@@ -119,10 +119,12 @@ class ElectricFieldSolver:
         return E_field
     
     def load_density_from_npy(self, path="density_n0.npy"):
+        e = -1.602e-19
+
         rho_array = np.load(path)
         V = fem.functionspace(self.domain, ("CG", 1))
         rho_func = fem.Function(V)
-        rho_func.x.array[:] = rho_array / 8.854187817e-12  # Convertir a rho/epsilon_0
+        rho_func.x.array[:] = rho_array*(e / 8.854187817e-12)  # Convertir a rho/epsilon_0
         return rho_func
 
 
@@ -251,20 +253,20 @@ if __name__ == "__main__":
 
     print("\nMesh loaded successfully!")
 
-    #Solve Laplace equation with specific anode voltage
-    Volt_input = 300
-    print("\nSolving Laplace equation...")
-    phi_laplace, E_laplace = solver.solve_laplace(Volt=Volt_input)
-    solver.save_electric_field_numpy(E_laplace, filename="Electric_Field_np.npy")
-    print("Laplace solution completed and saved.")
+    # Solve Laplace equation with specific anode voltage
+    # Volt_input = 300
+    # print("\nSolving Laplace equation...")
+    # phi_laplace, E_laplace = solver.solve_laplace(Volt=Volt_input)
+    # solver.save_electric_field_numpy(E_laplace, filename="Electric_Field_np.npy")
+    # print("Laplace solution completed and saved.")
 
 
     # #Solve Poisson
-    # print("\nSolving Poisson equation...")
-    # source_term= solver.load_density_from_npy()
-    # phi_poisson, E_poisson = solver.solve_poisson(source_term=None)
-    # solver.save_electric_field_numpy(E_poisson, filename="Electric_Field_np.npy")
-    # print("Poisson solution completed and saved.")
+    print("\nSolving Poisson equation...")
+    source_term= solver.load_density_from_npy()
+    phi_poisson, E_poisson = solver.solve_poisson(source_term=source_term)
+    solver.save_electric_field_numpy(E_poisson, filename="Electric_Field_np.npy")
+    print("Poisson solution completed and saved.")
 
 
     # Plot the resulting electric field
