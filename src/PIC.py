@@ -167,7 +167,7 @@ class PIC():
 
         self.s_label = MCC(s=self.s, v=self.v, s_label=self.s_label, rho=self.Rho_end, sigma_ion=self.sigma_ion, dt=self.dt, tree=self.tree)
 
-        print(cp.sum(self.s_label == 1)) #BORRAR
+        print("Iones: ", cp.sum(self.s_label == 1)) #BORRAR
 
         self.actualizar_rho()
 
@@ -227,28 +227,11 @@ class PIC():
             v_after_collision = v_tangencial - self.alpha * v_normal
 
             #___________________________________________________________________________________________
-            #       Calculo de energia cinetica antes y despues
-            E_before = 0.5 * self.m * cp.sum(v_before**2, axis=1)
-            E_after = 0.5 * self.m * cp.sum(v_after_collision**2, axis=1)
-
-            delta_E = E_before - E_after
-
-            #___________________________________________________________________________________________
-            #       Uso del termostato
-
-            lambda_value, temp_aux = aplicar_termostato(delta_E, num_collisions, self.dt, 100, 300, 8.617e-23)
-
-            v_final_mag = v_before * lambda_value.reshape(-1, 1)
-
-            self.temp.append(temp_aux)
-
-            v_final_mag = cp.sqrt(cp.sum(v_after_collision**2, axis=1))
-
-            #___________________________________________________________________________________________
             #       Correccion de las direcciones
 
+            v_magnitude = cp.sqrt(cp.sum(v_after_collision**2, axis=1))
             v_direction = v_after_collision / cp.linalg.norm(v_after_collision, axis=1, keepdims=True)
-            v_corrected = v_direction * v_final_mag[:, cp.newaxis]
+            v_corrected = v_direction * v_magnitude[:, cp.newaxis]
 
             #___________________________________________________________________________________________
             #       Actualizacion de la velocidad tras la colisión
@@ -310,24 +293,34 @@ class PIC():
 
             self.v[mask_out] = v_new
             self.s_label[mask_out] = 0
+
+        mask_ion = (self.s_label.ravel() == 1)
+
+        if int(cp.sum(mask_ion).item()) > 0:
+
+            v_ion = self.v[mask_ion][:,2]
+
+            self.specific_impulse = cp.mean(v_ion)/9.806
+
+
         
-        mask_ion = (self.s_label.ravel() == 1) # donde ION_ID es el valor que usas para los iones
+        # mask_ion = (self.s_label.ravel() == 1) # donde ION_ID es el valor que usas para los iones
 
-        v_ion = self.v[mask_ion]
+        # v_ion = self.v[mask_ion]
 
-        v_mag = np.sqrt(v_ion[:,0]**2 + v_ion[:,1]**2 + v_ion[:,2]**2)
+        # v_mag = np.sqrt(v_ion[:,0]**2 + v_ion[:,1]**2 + v_ion[:,2]**2)
 
-        # Valor mínimo
-        v_min = cp.min(v_mag)
+        # # Valor mínimo
+        # v_min = cp.min(v_mag)
 
-        # Valor máximo
-        v_max = cp.max(v_mag)
+        # # Valor máximo
+        # v_max = cp.max(v_mag)
 
-        # Si quieres imprimirlos como números normales (en CPU):
-        print(f"v_min = {v_min.item()} m/s")
-        print(f"v_max = {v_max.item()} m/s")
+        # # Si quieres imprimirlos como números normales (en CPU):
+        # print(f"v_min = {v_min.item()} m/s")
+        # print(f"v_max = {v_max.item()} m/s")
 
-        print("Impulso Especifico: ", cp.mean(v_mag)/9.81)
+        # print("Impulso Especifico: ", cp.mean(v_mag)/9.81)
 
     def render(self):
         self.s = cp.array(self.s)
@@ -353,16 +346,19 @@ class PIC():
         np.save("data_files/particle_simulation.npy", self.all_positions)
         print("Simulación guardada exitosamente en 'particle_simulation.npy'")
 
+
+        print("Impulso Especifico: ", self.specific_impulse)
+
         #np.save("data_files/density_end.npy", self.Rho_end)
 
 if __name__ == "__main__":
-    N = 100000
-    dt = 0.000000001
+    N = 10000
+    dt = 0.00000008
     q_m = 7.35e5
     m = 2.18e-25
     alpha = 0.9
     frames = 500
-    sigma_ion = 1e-13
+    sigma_ion = 1e-11
 
     def leer_datos_archivo(ruta_archivo):
         datos = {}

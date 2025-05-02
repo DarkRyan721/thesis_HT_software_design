@@ -111,14 +111,14 @@ neutrals = pv.PolyData(neutrals_points)
 
 # Añadir iones y neutros al plotter con diferentes colores
 if ions.n_points > 0:
-    ion_actor = plotter.add_mesh(ions, color='deepskyblue', point_size=0.5, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
+    ion_actor = plotter.add_mesh(ions, color='deepskyblue', point_size=1.0, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
 else:
     ion_actor = None  # No hay iones en el primer frame
 
-# if neutrals.n_points > 0:
-#     neutral_actor = plotter.add_mesh(neutrals, color='red', point_size=1.5, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
-# else:
-#     neutral_actor = None  # No hay neutrales en el primer frame
+if neutrals.n_points > 0:
+    neutral_actor = plotter.add_mesh(neutrals, color='red', point_size=1.5, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
+else:
+    neutral_actor = None  # No hay neutrales en el primer frame
 
 
 plotter.add_text("\nHall Effect Thruster", position="upper_edge", color='white')
@@ -177,20 +177,22 @@ for frame in range(num_frames):
         else:
             ion_actor.SetVisibility(False)
 
+        #ion_actor.SetVisibility(False)
+
     # Update neutrals
     num_neutrals = min(len(neutrals_points), max_particles)
 
-    # if neutral_actor is not None:
-    #     if num_neutrals > 0:
-    #         buffer_neutrals[:num_neutrals] = neutrals_points[:num_neutrals]
-    #         neutral_actor.SetVisibility(True)
-    #         neutrals.points = buffer_neutrals
-    #         neutral_actor.mapper.dataset.points = neutrals.points
-    #     else:
-    #         neutral_actor.SetVisibility(False)
+    if neutral_actor is not None:
+        if num_neutrals > 0:
+            buffer_neutrals[:num_neutrals] = neutrals_points[:num_neutrals]
+            neutral_actor.SetVisibility(True)
+            neutrals.points = buffer_neutrals
+            neutral_actor.mapper.dataset.points = neutrals.points
+        else:
+            neutral_actor.SetVisibility(False)
 
-    # neutral_actor.SetVisibility(False) 
-    #ion_actor.SetVisibility(False)
+        neutral_actor.SetVisibility(False) 
+
     plotter.update()
     time.sleep(1 / 20)
     print(f"\rFrame: {frame + 1}/{num_frames} | Iones: {num_ions} | Neutros: {num_neutrals}", end='', flush=True)
