@@ -3,11 +3,11 @@
 <Xdmf Version="3.0" xmlns:xi="https://www.w3.org/2001/XInclude">
   <Domain>
     <Grid Name="SPT100_Simulation_Zone" GridType="Uniform">
-      <Topology TopologyType="Tetrahedron" NumberOfElements="90467" NodesPerElement="4">
-        <DataItem Dimensions="90467 4" NumberType="Int" Format="HDF">boundary_conditions.h5:/Mesh/SPT100_Simulation_Zone/topology</DataItem>
+      <Topology TopologyType="Tetrahedron" NumberOfElements="211402" NodesPerElement="4">
+        <DataItem Dimensions="211402 4" NumberType="Int" Format="HDF">boundary_conditions.h5:/Mesh/SPT100_Simulation_Zone/topology</DataItem>
       </Topology>
       <Geometry GeometryType="XYZ">
-        <DataItem Dimensions="17297 3" Format="HDF">boundary_conditions.h5:/Mesh/SPT100_Simulation_Zone/geometry</DataItem>
+        <DataItem Dimensions="38824 3" Format="HDF">boundary_conditions.h5:/Mesh/SPT100_Simulation_Zone/geometry</DataItem>
       </Geometry>
     </Grid>
     <Grid Name="f" GridType="Collection" CollectionType="Temporal">
@@ -15,7 +15,7 @@
         <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
         <Time Value="0" />
         <Attribute Name="f" AttributeType="Scalar" Center="Node">
-          <DataItem Dimensions="17297 1" Format="HDF">boundary_conditions.h5:/Function/f/0</DataItem>
+          <DataItem Dimensions="38824 1" Format="HDF">boundary_conditions.h5:/Function/f/0</DataItem>
         </Attribute>
       </Grid>
     </Grid>

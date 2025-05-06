@@ -5,45 +5,51 @@ import ufl
 from ufl import SpatialCoordinate, exp, sqrt
 import pyvista as pv
 from dolfinx.geometry import BoundingBoxTree, compute_colliding_cells
+from scipy.stats import gamma
 
 
-def generate_density(domain, n0 = 1e16, R=0.035, z0=0.01, sigma=0.008):
+def generate_density(domain, r0=0.04, sigma_r=0.007, A=1.2e15, z_min=-0.004, k=2, theta=0.012):
     """
-    Genera la densidad de electrones inicial n0 usando una distribución gaussiana tipo anillo.
-
-    Parámetros:
-    -----------
-    domain : dolfinx.mesh.Mesh
-        Malla cargada en FEniCSx.
-    rho_value : float
-        Carga total deseada [#particulas/m^3].
-    R : float
-        Radio medio del anillo [m].
-    z0 : float
-        Posición axial del anillo [m].
-    sigma : float
-        Ancho del anillo [m].
-    epsilon_0 : float
-        Permisividad del vacío.
-
-    Retorna:
-    --------
-    n0 : dolfinx.fem.Function
-        Densidad de carga generada interpolada en el dominio.
+    Retorna una Function FEniCSx con la densidad electrónica n_e(r,z)
+    tipo anillo elongado, usando perfil radial gaussiano y axial gamma.
     """
+
+    # Crear espacio de funciones
     V = fem.functionspace(domain, ("CG", 1))
     x = SpatialCoordinate(domain)
 
-    # Distribución gaussiana tipo anillo
+    # Coordenadas r y z (r en plano xy, z es eje axial)
     r = sqrt(x[0]**2 + x[1]**2)
-    dist_sq = (r - R)**2 + (x[2] - z0)**2
-    ring_expr = (n0) * exp(-dist_sq / (2 * sigma**2))
+    z = x[2]
 
-    # Interpolación de la densidad de carga
-    n0 = fem.Function(V)
-    n0.interpolate(fem.Expression(ring_expr, V.element.interpolation_points()))
+    # --- PERFIL RADIAL (gaussiano centrado en r0)
+    perfil_r = exp(-((r - r0)**2) / (2 * sigma_r**2))
 
-    return n0
+    # --- PERFIL AXIAL (gamma convertido a expresión numérica)
+    # Usamos numpy + scipy fuera de UFL para precomputar gamma
+    # porque FEniCS no tiene gamma.pdf directamente
+    def gamma_custom(z_val):
+        return gamma.pdf(z_val, a=k, scale=theta, loc=z_min)
+
+    # Interpolamos evaluando sobre los puntos de interpolación de V
+    x_points = V.element.interpolation_points()
+    ne_vals = np.zeros(len(x_points))
+
+    for i, pt in enumerate(x_points):
+        r_val = np.sqrt(pt[0]**2 + pt[1]**2)
+        z_val = pt[2]
+        val_r = np.exp(-((r_val - r0)**2) / (2 * sigma_r**2))
+        val_z = gamma_custom(z_val)
+        ne_vals[i] = A * val_r * val_z
+
+    # Crear Function y asignar valores interpolados
+    n_e = fem.Function(V)
+    n_e.interpolate(lambda x: np.array([
+        A * np.exp(-((np.sqrt(xi[0]**2 + xi[1]**2) - r0)**2) / (2 * sigma_r**2)) *
+        gamma_custom(xi[2])
+        for xi in x.T]).reshape((1, -1)))
+
+    return n_e
 
 
 def save_density(n0, filename="density_n0.npy"):

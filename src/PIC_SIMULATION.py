@@ -8,6 +8,15 @@ import time
 all_positions = np.load("data_files/particle_simulation.npy", mmap_mode="r")
 num_frames, num_particles, _ = all_positions.shape
 
+if num_particles == 10000:
+    particle_size = 1.2
+elif num_particles == 100000:
+    particle_size = 0.8
+elif num_particles == 1000000:
+    particle_size = 0.5
+else:
+    particle_size = 2.0
+
 # print(all_positions[0])
 
 # all_positions = all_positions[:, :, :3]
@@ -57,6 +66,8 @@ def Geometries_creation():
     # Plano solido:
     plano_solid = pv.Cube(center=(0, 0, 0), x_length=ancho_plano, y_length=ancho_plano, z_length=espesor_plano).triangulate()
 
+    plano_final = pv.Cube(center=(0, 0, 0.2), x_length=ancho_plano, y_length=ancho_plano, z_length=espesor_plano).triangulate()
+
     # Plano hueco:
     plano_hueco_aux = pv.Cube(center=(0, 0, L), x_length=ancho_plano, y_length=ancho_plano, z_length=espesor_plano).triangulate()
     cilindro_corte = pv.Cylinder(center=(0, 0, L), direction=direccion,radius=Rext,height=10,resolution=100).triangulate()
@@ -72,6 +83,7 @@ def Geometries_creation():
     plotter.set_background("black")
     plotter.add_mesh(cilindro, color="#656565", opacity=1, show_edges=False, specular=1.0, specular_power=30, diffuse=0.8, ambient=0.2)
     plotter.add_mesh(plano_solid, color="gray", opacity=1, specular=1.0, specular_power=30, diffuse=0.8, ambient=0.3)
+    plotter.add_mesh(plano_final, color="gray", opacity=1, specular=1.0, specular_power=30, diffuse=0.8, ambient=0.3)
     plotter.add_mesh(plano_hueco, color="gray", opacity=1, specular=1.0, specular_power=30, diffuse=0.8, ambient=0.3)
     plotter.add_mesh(cilindro_tapa, color="gray", opacity=1, specular=1.0, specular_power=30, diffuse=0.8, ambient=0.3)
     plotter.add_mesh(cilindro_1, color="#CD7F32", opacity=1, specular=1.0, specular_power=30, diffuse=0.8, ambient=0.3)
@@ -111,12 +123,12 @@ neutrals = pv.PolyData(neutrals_points)
 
 # Añadir iones y neutros al plotter con diferentes colores
 if ions.n_points > 0:
-    ion_actor = plotter.add_mesh(ions, color='deepskyblue', point_size=1.0, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
+    ion_actor = plotter.add_mesh(ions, color='deepskyblue', point_size=particle_size, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
 else:
     ion_actor = None  # No hay iones en el primer frame
 
 if neutrals.n_points > 0:
-    neutral_actor = plotter.add_mesh(neutrals, color='red', point_size=1.5, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
+    neutral_actor = plotter.add_mesh(neutrals, color='red', point_size=particle_size, render_points_as_spheres=True, lighting=True, specular=0.9, diffuse=1, ambient=0.3)
 else:
     neutral_actor = None  # No hay neutrales en el primer frame
 
@@ -147,6 +159,7 @@ max_particles = num_particles  # Tamaño máximo del buffer
 buffer_ions = np.full((max_particles, 3), np.nan, dtype=np.float32)
 buffer_neutrals = np.full((max_particles, 3), np.nan, dtype=np.float32)
 
+#neutral_actor.SetVisibility(False) 
 
 for frame in range(num_frames):
     if window_closed:
@@ -161,14 +174,15 @@ for frame in range(num_frames):
     frame_data = all_positions[frame]
 
     mask_ions = frame_data[:, 3] == 1
-    mask_neutrals = frame_data[:, 3] == 0
+    
     ions_points = frame_data[mask_ions, :3]
-    neutrals_points = frame_data[mask_neutrals, :3]
+    
 
     # Update ions
     num_ions = min(len(ions_points), max_particles)
 
     if ion_actor is not None:
+        buffer_ions[:] = np.nan
         if num_ions > 0:
             buffer_ions[:num_ions] = ions_points[:num_ions]
             ion_actor.SetVisibility(True)
@@ -180,9 +194,13 @@ for frame in range(num_frames):
         #ion_actor.SetVisibility(False)
 
     # Update neutrals
+    mask_neutrals = frame_data[:, 3] == 0
+    neutrals_points = frame_data[mask_neutrals, :3]
     num_neutrals = min(len(neutrals_points), max_particles)
+    
 
     if neutral_actor is not None:
+        buffer_neutrals[:] = np.nan
         if num_neutrals > 0:
             buffer_neutrals[:num_neutrals] = neutrals_points[:num_neutrals]
             neutral_actor.SetVisibility(True)
@@ -194,7 +212,7 @@ for frame in range(num_frames):
         neutral_actor.SetVisibility(False) 
 
     plotter.update()
-    time.sleep(1 / 20)
+    time.sleep(1 / 60)
     print(f"\rFrame: {frame + 1}/{num_frames} | Iones: {num_ions} | Neutros: {num_neutrals}", end='', flush=True)
 
 print("\n")

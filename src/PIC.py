@@ -39,6 +39,8 @@ class PIC():
         self.m = m #[kg]
         self.sigma_ion = sigma_ion #[1]
 
+        self.prev_s = None 
+
         #___________________________________________________________________________________________
         #       Cargando y guardando los valores de Campo Electrico
 
@@ -167,7 +169,7 @@ class PIC():
 
         self.s_label = MCC(s=self.s, v=self.v, s_label=self.s_label, rho=self.Rho_end, sigma_ion=self.sigma_ion, dt=self.dt, tree=self.tree)
 
-        print("Iones: ", cp.sum(self.s_label == 1)) #BORRAR
+        #print("Iones: ", cp.sum(self.s_label == 1)) #BORRAR
 
         self.actualizar_rho()
 
@@ -190,7 +192,16 @@ class PIC():
 
         self.v[mask_ion] += self.q_m * (E+F_Lorentz) * self.dt
 
+        self.prev_s = self.s.copy()
+
         self.s += self.v * self.dt
+
+        mask_negative_z = self.v[:, 2] < 0  # Crea una máscara booleana donde Z es negativo
+
+        # Filtrar las partículas con valores negativos en Z
+        num_particles_negative_z = cp.sum(mask_negative_z).item()  # Cuenta cuántas partículas tienen valores negativos en Z
+
+        print(f"Cantidad de partículas con valores negativos en Z: {num_particles_negative_z}")
 
         #___________________________________________________________________________________________
         #       Se aplican las colisiones elasticas con la estructura del propulsor
@@ -255,6 +266,8 @@ class PIC():
         
         num_reinsert = int(cp.sum(mask_out).item())
 
+        #print("Salieron: ", num_reinsert)
+
         if num_reinsert > 0:
             #___________________________________________________________________________________________
             #       Generamos nuevas posiciones en el cilindro en (X,Y)
@@ -294,33 +307,13 @@ class PIC():
             self.v[mask_out] = v_new
             self.s_label[mask_out] = 0
 
-        mask_ion = (self.s_label.ravel() == 1)
+        mask_ISP = (self.s_label.ravel() == 1) & (self.v[:, 2] > 0) & (self.s[:, 2] > self.L)
 
-        if int(cp.sum(mask_ion).item()) > 0:
-
-            v_ion = self.v[mask_ion][:,2]
-
-            self.specific_impulse = cp.mean(v_ion)/9.806
-
-
-        
-        # mask_ion = (self.s_label.ravel() == 1) # donde ION_ID es el valor que usas para los iones
-
-        # v_ion = self.v[mask_ion]
-
-        # v_mag = np.sqrt(v_ion[:,0]**2 + v_ion[:,1]**2 + v_ion[:,2]**2)
-
-        # # Valor mínimo
-        # v_min = cp.min(v_mag)
-
-        # # Valor máximo
-        # v_max = cp.max(v_mag)
-
-        # # Si quieres imprimirlos como números normales (en CPU):
-        # print(f"v_min = {v_min.item()} m/s")
-        # print(f"v_max = {v_max.item()} m/s")
-
-        # print("Impulso Especifico: ", cp.mean(v_mag)/9.81)
+        if int(cp.sum(mask_ISP).item()) > 0:
+            v_ion = self.v[mask_ISP][:, 2]
+            self.specific_impulse = cp.mean(v_ion) / 9.806
+        else:
+            self.specific_impulse = 0.0
 
     def render(self):
         self.s = cp.array(self.s)
@@ -353,7 +346,7 @@ class PIC():
 
 if __name__ == "__main__":
     N = 10000
-    dt = 0.00000008
+    dt = 0.00000004
     q_m = 7.35e5
     m = 2.18e-25
     alpha = 0.9

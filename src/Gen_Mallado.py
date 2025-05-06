@@ -54,8 +54,8 @@ class HallThrusterMesh:
             self.size_min = 0.005
             self.size_max = 0.009
         elif self.refinement_level == "high":
-            self.size_min = 0.002
-            self.size_max = 0.004
+            self.size_min = 0.003
+            self.size_max = 0.007
         else:
             raise ValueError("Invalid refinement level. Choose 'low', 'medium', or 'high'.")
 
@@ -306,6 +306,6 @@ if __name__ == "__main__":
     outer_radius = 0.1/2
     inner_radius = 0.056/2
     height = 0.02
-    refinement = "low"
+    refinement = "medium"
     mesh_gen = HallThrusterMesh(R_big=outer_radius, R_small=inner_radius, H=height, refinement_level=refinement)
     mesh_gen.generate()
