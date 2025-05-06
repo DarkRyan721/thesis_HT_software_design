@@ -1,11 +1,11 @@
 import numpy as np
-from dolfinx import fem, io, mesh
-from petsc4py import PETSc
-import ufl
-from ufl import SpatialCoordinate, exp, sqrt
+from dolfinx import fem, io
+from ufl import SpatialCoordinate, sqrt
 import pyvista as pv
-from dolfinx.geometry import BoundingBoxTree, compute_colliding_cells
 from scipy.stats import gamma
+from tqdm import tqdm
+import os
+from mpi4py import MPI
 
 
 def generate_density(domain, r0=0.04, sigma_r=0.007, A=1.2e15, z_min=-0.004, k=2, theta=0.012):
@@ -13,21 +13,14 @@ def generate_density(domain, r0=0.04, sigma_r=0.007, A=1.2e15, z_min=-0.004, k=2
     Retorna una Function FEniCSx con la densidad electrónica n_e(r,z)
     tipo anillo elongado, usando perfil radial gaussiano y axial gamma.
     """
+    pbar = tqdm(total=4, desc="Densidad de carga")
 
-    # Crear espacio de funciones
     V = fem.functionspace(domain, ("CG", 1))
     x = SpatialCoordinate(domain)
 
-    # Coordenadas r y z (r en plano xy, z es eje axial)
+    pbar.update(1)
     r = sqrt(x[0]**2 + x[1]**2)
-    z = x[2]
 
-    # --- PERFIL RADIAL (gaussiano centrado en r0)
-    perfil_r = exp(-((r - r0)**2) / (2 * sigma_r**2))
-
-    # --- PERFIL AXIAL (gamma convertido a expresión numérica)
-    # Usamos numpy + scipy fuera de UFL para precomputar gamma
-    # porque FEniCS no tiene gamma.pdf directamente
     def gamma_custom(z_val):
         return gamma.pdf(z_val, a=k, scale=theta, loc=z_min)
 
@@ -35,6 +28,7 @@ def generate_density(domain, r0=0.04, sigma_r=0.007, A=1.2e15, z_min=-0.004, k=2
     x_points = V.element.interpolation_points()
     ne_vals = np.zeros(len(x_points))
 
+    pbar.update(1)
     for i, pt in enumerate(x_points):
         r_val = np.sqrt(pt[0]**2 + pt[1]**2)
         z_val = pt[2]
@@ -42,15 +36,18 @@ def generate_density(domain, r0=0.04, sigma_r=0.007, A=1.2e15, z_min=-0.004, k=2
         val_z = gamma_custom(z_val)
         ne_vals[i] = A * val_r * val_z
 
-    # Crear Function y asignar valores interpolados
+    pbar.update(1)
     n_e = fem.Function(V)
     n_e.interpolate(lambda x: np.array([
         A * np.exp(-((np.sqrt(xi[0]**2 + xi[1]**2) - r0)**2) / (2 * sigma_r**2)) *
         gamma_custom(xi[2])
         for xi in x.T]).reshape((1, -1)))
+    
+    pbar.update(1)
+
+    pbar.close()
 
     return n_e
-
 
 def save_density(n0, filename="density_n0.npy"):
     """
@@ -58,7 +55,6 @@ def save_density(n0, filename="density_n0.npy"):
     """
     n0_array = n0.x.array
     np.save(filename, n0_array)
-
 
 def plot_density(domain, title="Densidad de Carga Inicial n0"):
     # Cargar puntos y densidad desde archivos numpy
@@ -96,11 +92,7 @@ def plot_density(domain, title="Densidad de Carga Inicial n0"):
 
     plotter.show()
 
-
 if __name__ == "__main__":
-    import os
-    from mpi4py import MPI
-
     # Cambiar al directorio adecuado
     os.chdir("data_files")
 
@@ -108,12 +100,13 @@ if __name__ == "__main__":
     with io.XDMFFile(MPI.COMM_WORLD, "SimulationZone.xdmf", "r") as xdmf:
         domain = xdmf.read_mesh(name="SPT100_Simulation_Zone")
 
-    # Generar la densidad de carga inicial
+    # Generar la densidad de electrones inicial
     n0 = generate_density(domain)
 
-    # # Guardar la densidad de carga
+    # Guardar la densidad de electrones
     save_density(n0)
 
+    # plot de la densidad de electrones
     plot_density(domain)
 
     print("Densidad de carga inicial n0 generada y guardada exitosamente como 'density_n0.npy'.")

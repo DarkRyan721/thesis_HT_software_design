@@ -127,7 +127,6 @@ class ElectricFieldSolver:
         rho_func.x.array[:] = rho_array*(e / 8.854187817e-12)  # Convertir a rho/epsilon_0
         return rho_func
 
-
     def solve_laplace(self, volt_tag=3, ground_tag=6, cathode_tag=7, Volt=300, Volt_cath=18):
         """
         Solves the Laplace equation:
@@ -261,7 +260,7 @@ if __name__ == "__main__":
     # print("Laplace solution completed and saved.")
 
 
-    # #Solve Poisson
+    # Solve Poisson
     print("\nSolving Poisson equation...")
     source_term= solver.load_density_from_npy()
     phi_poisson, E_poisson = solver.solve_poisson(source_term=source_term)

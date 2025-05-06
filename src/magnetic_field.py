@@ -331,9 +331,6 @@ class B_Field():
 E_File = np.load("data_files/Electric_Field_np.npy")
 
 spatial_coords = E_File[:, :3]
-X = spatial_coords[:, 0]
-Y = spatial_coords[:, 1]
-Z = spatial_coords[:, 2]
 
 B = B_Field()
 

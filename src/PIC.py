@@ -196,12 +196,12 @@ class PIC():
 
         self.s += self.v * self.dt
 
-        mask_negative_z = self.v[:, 2] < 0  # Crea una máscara booleana donde Z es negativo
+        # mask_negative_z = (self.v[:, 2] < 0) & (self.s[:,2] >= 0.02) # Crea una máscara booleana donde Z es negativo
 
-        # Filtrar las partículas con valores negativos en Z
-        num_particles_negative_z = cp.sum(mask_negative_z).item()  # Cuenta cuántas partículas tienen valores negativos en Z
+        # # Filtrar las partículas con valores negativos en Z
+        # num_particles_negative_z = cp.sum(mask_negative_z).item()  # Cuenta cuántas partículas tienen valores negativos en Z
 
-        print(f"Cantidad de partículas con valores negativos en Z: {num_particles_negative_z}")
+        # print(f"Cantidad de partículas con valores negativos en Z: {num_particles_negative_z}")
 
         #___________________________________________________________________________________________
         #       Se aplican las colisiones elasticas con la estructura del propulsor

@@ -8,14 +8,15 @@ import time
 all_positions = np.load("data_files/particle_simulation.npy", mmap_mode="r")
 num_frames, num_particles, _ = all_positions.shape
 
-if num_particles == 10000:
+if num_particles <= 4000:
+    particle_size = 3.0
+if num_particles <= 10000:
     particle_size = 1.2
-elif num_particles == 100000:
+elif num_particles <= 100000:
     particle_size = 0.8
-elif num_particles == 1000000:
+elif num_particles <= 1000000:
     particle_size = 0.5
-else:
-    particle_size = 2.0
+
 
 # print(all_positions[0])
 
