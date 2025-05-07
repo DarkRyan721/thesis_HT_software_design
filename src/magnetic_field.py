@@ -7,7 +7,7 @@ import cupy as cp
 from scipy.interpolate import griddata
 
 class B_Field():
-    def __init__(self, nSteps=5000, L=0.02, Rin=0.023, Rext=0.05, N=200, I=4.5):
+    def __init__(self, nSteps=5000, L=0.02, Rin=0.028, Rext=0.05, N=200, I=4.5):
         #___________________________________________________________________________________________
         #   Parametros de los solenoides
 
@@ -327,13 +327,40 @@ class B_Field():
         np.save("data_files/Magnetic_Field_np.npy", MagField_array)
         print("Archivo guardado")
 
+if __name__ == "__main__":
 
-E_File = np.load("data_files/Electric_Field_np.npy")
+    # EXAMPLE FOR GUI:
 
-spatial_coords = E_File[:, :3]
+    # 1. Cargar y guardar los nodos de la malla
 
-B = B_Field()
+    E_File = np.load("data_files/Electric_Field_np.npy")
+    spatial_coords = E_File[:, :3]
 
-B_value = B.Total_Magnetic_Field(S=spatial_coords)
+    # 2. Crear objeto del campo magnetico
 
-B.Save_B_Field(B=B_value, S=spatial_coords)
+    """
+        Entradas que brinda el usuario para el campo magentico:
+
+        nSteps -> Resolucion de un solenoide (afecta el rendimiento)
+        L -> Longitud o profundidad del propulsor/solenoide
+        Rin -> Radio interno
+        Rext -> Radio externo
+        N -> Numero de vueltas del solenoide (opcional)
+        I -> Corriente en los solenoides (opcional)
+    """
+
+    B_field = B_Field()
+
+    # 3. Calcular el campo magnetico total producido por los 5 solenoides
+
+    B_value = B_field.Total_Magnetic_Field(S=spatial_coords)
+
+    # 4. Guardar en el archivo el campo magnetico encontrado
+
+    B_field.Save_B_Field(B=B_value, S=spatial_coords)
+
+    # 5.Diferentes opciones de plot para el usuario(Opcional)
+
+    # B_field.color_map_B(S=spatial_coords, XY=True, Plane_Value=0.01...)
+    # B_field.B_Field_Lines(B=B_value, S=spatial_coords...)
+    # B_field.Solenoid_points_plot(...)
