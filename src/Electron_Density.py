@@ -98,7 +98,7 @@ def save_density(n0, filename="density_n0.npy"):
 
     #___________________________________________________________________________________________
 
-def plot_density_XY(r0=0.04, sigma_r=0.007, A=1.2e15, z_min=-0.004, k=2, theta=0.012, z_plane=0.01, x_range=(-0.1, 0.1), y_range=(-0.1, 0.1), resolution=5000, global_max=3.67e16, Rin=0.028, Rex=0.05):
+def plot_density_XY(r0=0.04, sigma_r=0.007, A=1.2e15, z_min=-0.004, k=2, theta=0.012, z_plane=0.01, x_range=(-0.1, 0.1), y_range=(-0.1, 0.1), resolution=5000, Rin=0.028, Rex=0.05):
 
     #___________________________________________________________________________________________
     #       Crear malla 2D
@@ -111,7 +111,12 @@ def plot_density_XY(r0=0.04, sigma_r=0.007, A=1.2e15, z_min=-0.004, k=2, theta=0
     #     Calcular densidad en el plano z_plane 
 
     density_vals = A * np.exp(-((r_vals - r0)**2) / (2 * sigma_r**2)) * gamma_custom(z_vals, k, theta, z_min)
+
+    global_max = np.max(density_vals)
+    global_min = global_max / 10
+
     density_vals[density_vals < 1] = 0
+
 
     #___________________________________________________________________________________________
     #       definicion de máscara para el anillo: Rin < R < Rex
@@ -127,25 +132,30 @@ def plot_density_XY(r0=0.04, sigma_r=0.007, A=1.2e15, z_min=-0.004, k=2, theta=0
     #___________________________________________________________________________________________
     #       Creacion y configuracion de la figura para el plot
     
-    plt.figure(figsize=(10, 8))
+    fig = plt.figure(figsize=(10, 8))
+    fig.canvas.manager.set_window_title("Plano de Densidad Electrónica")
+
     plt.gca().set_facecolor('black') 
 
-    norm = mcolors.LogNorm(vmin=np.min(masked_density[masked_density > 0]), vmax=global_max)
+    ticks = np.logspace(np.log10(global_min), np.log10(global_max), num=5)
+    tick_labels = [f'{tick:.1e}' for tick in ticks]
+
+    norm = mcolors.LogNorm(vmin=global_min, vmax=global_max)
 
     img = plt.imshow(masked_density, extent=(x_range[0], x_range[1], y_range[0], y_range[1]), origin='lower', cmap='inferno', aspect='auto', norm=norm)
 
-    cbar = plt.colorbar(img, label='Densidad ne (m⁻³)')
-    cbar.set_ticks([global_max * 0.3, global_max * 0.5, global_max * 0.75, global_max])
-    cbar.set_ticklabels([f'{global_max * 0.3:.1e}', f'{global_max * 0.5:.1e}', f'{global_max * 0.75:.1e}', f'{global_max:.1e}'])
+    cbar = plt.colorbar(img, label='ne (m⁻³)')
+    cbar.set_ticks(ticks)
+    cbar.set_ticklabels(tick_labels)
 
-    plt.title(f"Densidad en z = {z_plane}")
+    plt.title(f"Densidad de electrones en z = {z_plane}")
     plt.xlabel("X (m)")
     plt.ylabel("Y (m)")
     plt.show()
 
     #___________________________________________________________________________________________
 
-def plot_density_ZX(r0=0.04, sigma_r=0.007, A=1.2e15, z_min=-0.004, k=2, theta=0.012, y_plane=0.0, x_range=(-0.1, 0.1), z_range=(0, 0.2), resolution=5000, global_max=3.67e16, Rin=0.028, Rex=0.05):
+def plot_density_ZX(r0=0.04, sigma_r=0.007, A=1.2e15, z_min=-0.004, k=2, theta=0.012, y_plane=0.0, x_range=(0.0, 0.1), z_range=(0, 0.2), resolution=5000, global_max=3.67e16, Rin=0.028, Rex=0.05):
     
     #___________________________________________________________________________________________
     #       Crear malla (Z vs X)
@@ -158,7 +168,11 @@ def plot_density_ZX(r0=0.04, sigma_r=0.007, A=1.2e15, z_min=-0.004, k=2, theta=0
     #       Calcular densidad
 
     density_vals = A * np.exp(-((r_vals - r0)**2) / (2 * sigma_r**2)) * gamma_custom(z_grid, k, theta, z_min)
-    density_vals[density_vals < 0] = 0
+
+    global_max = np.max(density_vals)
+    global_min = global_max / 1e6
+
+    density_vals[density_vals < 1] = 0
 
     #___________________________________________________________________________________________
     #       Máscara condicional para correcta impresion
@@ -170,23 +184,25 @@ def plot_density_ZX(r0=0.04, sigma_r=0.007, A=1.2e15, z_min=-0.004, k=2, theta=0
     #___________________________________________________________________________________________
     #       Creacion y configuracion del gráfico
 
-    plt.figure(figsize=(10, 8))
+    fig = plt.figure(figsize=(10, 8))
+    fig.canvas.manager.set_window_title("Plano de Densidad Electrónica")
     plt.gca().set_facecolor('black')
 
-    non_zero_values = masked_density[masked_density > 0]
-    vmin = np.min(non_zero_values) if len(non_zero_values) > 0 else 1e-15
-    norm = mcolors.LogNorm(vmin=vmin, vmax=global_max)
+    ticks = np.logspace(np.log10(global_min), np.log10(global_max), num=5)
+    tick_labels = [f'{tick:.1e}' for tick in ticks]
+
+    norm = mcolors.LogNorm(vmin=global_min, vmax=global_max)
 
     cmap = plt.get_cmap('inferno').copy()
     cmap.set_under('black')
 
     img = plt.imshow(masked_density.T, extent=(z_range[0], z_range[1], x_range[0], x_range[1]), origin='lower', cmap=cmap, aspect='auto', norm=norm)
 
-    cbar = plt.colorbar(img, label='Densidad ne (m⁻³)')
-    cbar.set_ticks([global_max * 0.3, global_max * 0.5, global_max * 0.75, global_max])
-    cbar.set_ticklabels([f'{global_max * 0.3:.1e}', f'{global_max * 0.5:.1e}', f'{global_max * 0.75:.1e}', f'{global_max:.1e}'])
+    cbar = plt.colorbar(img, label='ne (m⁻³)')
+    cbar.set_ticks(ticks)
+    cbar.set_ticklabels(tick_labels)
 
-    plt.title(f"Densidad en Y = {y_plane}")
+    plt.title(f"Densidad de electrones en Y = {y_plane}")
     plt.xlabel("Z (m)")
     plt.ylabel("X (m)")
     plt.show()
@@ -207,37 +223,62 @@ def plot_density(title="Densidad Electronica", bool_3D = True, bool_XY_Plane = F
     """
 
     if bool_3D == True:
+        #___________________________________________________________________________________________
+        #       Cargando los datos espaciales y de densidad
+
         E_np = np.load('Electric_Field_np.npy')
         points = E_np[:, :3]
 
-        n0 = np.load('density_n0.npy') 
+        n0 = np.load('density_end.npy')
+        n0_log = np.log10(n0)
+
+        #___________________________________________________________________________________________
+        #       Creando el objeto plot
 
         mesh = pv.PolyData(points)
-        mesh["n0"] = n0
+
+        max_value = np.max(n0_log[n0_log != np.log10(1e-100)])
+
+        #___________________________________________________________________________________________
+        #       Definir límites manuales para el colormap
+        
+        log_min = max_value - 3.0
+        log_max = max_value
+
+        #___________________________________________________________________________________________
+        #       Configuracion del plot
+
+        mesh["n0_log"] = n0_log
 
         plotter = pv.Plotter()
+        plotter.add_axes(color="white")
         plotter.set_background("black")
 
-        # Añadir la malla con la densidad
-        plotter.add_mesh(mesh, scalars="n0", cmap="plasma", point_size=5, 
-                    render_points_as_spheres=True,
-                    scalar_bar_args={
-                        'title': "",
-                        'color': 'white',  # Color de los números y título
-                        'label_font_size': 12,
-                        'title_font_size': 10
-                    })
+        plotter.add_mesh(
+            mesh, 
+            scalars="n0_log", 
+            cmap="plasma", 
+            clim=[log_min, log_max],
+            point_size=2,
+            render_points_as_spheres=True,
+            scalar_bar_args={
+                'title': "ne [m⁻³] (log₁₀)\n",
+                'color': 'white',
+                'fmt': "%.1f",
+            }
+        )
 
-        # Cambiar el color de los ejes a blanco
-        plotter.add_axes(color="white")
+        plotter.camera_position = [
+            (1.0, 0.0, 0.0),
+            (0.0, 0.0, 0.0), 
+            (0.0, -1.0, 0.0)
+        ]
 
-        # Añadir la barra de color con texto blanco
-        # Obtener la barra de color original generada por add_mesh()
+        plotter.add_text("Distribución de Densidad Electrónica", position='upper_edge', font_size=12, color='white')
 
-        # Mostrar el título con letras blancas
-        plotter.add_text("Mapa de Calor - Densidad de Carga Inicial n0", position='upper_edge', color="white", font_size=14)
+        plotter.show()
 
-        plotter.show()  
+        #___________________________________________________________________________________________
     elif bool_XY_Plane == True:
         plot_density_XY()
     elif bool_XZ_plane == True:
@@ -265,14 +306,14 @@ if __name__ == "__main__":
     """
 
     # 1. Cargar la malla
-    with io.XDMFFile(MPI.COMM_WORLD, "SimulationZone.xdmf", "r") as xdmf:
-        domain = xdmf.read_mesh(name="SPT100_Simulation_Zone")
+    # with io.XDMFFile(MPI.COMM_WORLD, "SimulationZone.xdmf", "r") as xdmf:
+    #     domain = xdmf.read_mesh(name="SPT100_Simulation_Zone")
 
-    # 2. Generar la densidad de electrones inicial
-    n0 = generate_density(domain)
+    # # 2. Generar la densidad de electrones inicial
+    # n0 = generate_density(domain)
 
-    # 3. Guardar la densidad de electrones
-    save_density(n0)
+    # # 3. Guardar la densidad de electrones
+    # save_density(n0)
 
     # 3. plot opcional de la densidad de electrones
     plot_density(bool_3D=True, bool_XY_Plane=False, bool_XZ_plane=False) #Tiene 3 tipos de plots(3D, Plano XY, Plano ZX)
