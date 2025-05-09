@@ -48,14 +48,14 @@ class HallThrusterMesh:
         Internal method to set mesh refinement sizes.
         """
         if self.refinement_level == "low":
-            self.size_min = 0.008
-            self.size_max = 0.012
+            self.size_min = 0.16*self.R_big
+            self.size_max = 0.24*self.R_big
         elif self.refinement_level == "medium":
-            self.size_min = 0.005
-            self.size_max = 0.009
+            self.size_min = 0.1*self.R_big
+            self.size_max = 0.18*self.R_big
         elif self.refinement_level == "high":
-            self.size_min = 0.003
-            self.size_max = 0.007
+            self.size_min = 0.04*self.R_big
+            self.size_max = 0.08*self.R_big
         else:
             raise ValueError("Invalid refinement level. Choose 'low', 'medium', or 'high'.")
 
@@ -105,12 +105,12 @@ class HallThrusterMesh:
         #afterwards)
         # ----------------------------------------------------------------------
         #Hollow Cathode Points
-        point_1 = gmsh.model.occ.add_point(0.02,R_big+0.01,H)
-        point_2 = gmsh.model.occ.add_point(-0.02,R_big+0.01,H)
-        point_3 = gmsh.model.occ.add_point(0.02,R_big+0.04,H)
-        point_4 = gmsh.model.occ.add_point(-0.02,R_big+0.04,H)
-        point_5 = gmsh.model.occ.add_point(0.02,R_big+0.025,H+0.015)
-        point_6 = gmsh.model.occ.add_point(-0.02,R_big+0.025,H+0.015)
+        point_1 = gmsh.model.occ.add_point(0.4*R_big,1.2*R_big,H)
+        point_2 = gmsh.model.occ.add_point(-0.4*R_big,1.2*R_big,H)
+        point_3 = gmsh.model.occ.add_point(0.4*R_big,1.8*R_big,H)
+        point_4 = gmsh.model.occ.add_point(-0.4*R_big,1.8*R_big,H)
+        point_5 = gmsh.model.occ.add_point(0.4*R_big,1.5*R_big,H+0.015)
+        point_6 = gmsh.model.occ.add_point(-0.4*R_big,1.5*R_big,H+0.015)
 
         #Plume domain points
         point_7 = gmsh.model.occ.add_point(pos_cube,pos_cube,H)
@@ -287,8 +287,8 @@ class HallThrusterMesh:
         gmsh.model.mesh.field.setNumber(2, "InField", 1)
         gmsh.model.mesh.field.setNumber(2, "SizeMin", self.size_min)
         gmsh.model.mesh.field.setNumber(2, "SizeMax", self.size_max)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", 0.001)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", 0.008)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", 0.02*R_big)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 0.16*R_big)
 
         gmsh.model.mesh.field.setAsBackgroundMesh(2)
 
@@ -303,9 +303,9 @@ class HallThrusterMesh:
 
 if __name__ == "__main__":
     # From GUI inputs:
-    outer_radius = 0.1/2
-    inner_radius = 0.056/2
-    height = 0.02
+    outer_radius = 0.1/2 #0.1/2
+    inner_radius = 0.056/2 #0.056/2
+    height = 0.02 #0.02
     refinement = "medium"
     mesh_gen = HallThrusterMesh(R_big=outer_radius, R_small=inner_radius, H=height, refinement_level=refinement)
     mesh_gen.generate()
