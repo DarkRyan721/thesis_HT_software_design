@@ -89,11 +89,12 @@ class HallThrusterMesh:
         return matched
 
     def generate(self):
+
+        self.gmsh_callback()
         """
         Main method to build geometry, assign physical groups, apply mesh refinement,
         generate the mesh, and export it.
         """
-        gmsh.initialize()
         gmsh.model.add("SPT100_Simulation_Zone")
         R_big, R_small, H, L = self.R_big, self.R_small, self.H, self.L
 
@@ -236,9 +237,9 @@ class HallThrusterMesh:
         all_surfaces = gmsh.model.getEntities(2)
         outlet_plume_surfaces_new = self.find_matching_surfaces(original_outlet_coords, all_surfaces)
         cathode_surfaces_new = self.find_matching_surfaces(original_cathode_coords,all_surfaces)
-        cathode_surfaces_new.remove(29)
-        cathode_surfaces_new.remove(28)
-        cathode_surfaces_new.remove(27)
+        for tag in [29, 28, 27]:
+            if tag in cathode_surfaces_new:
+                cathode_surfaces_new.remove(tag)
 
         # Identify inlet, outlet, and wall surfaces by their center-of-mass coordinates
         inlet_surfaces = []
@@ -300,6 +301,15 @@ class HallThrusterMesh:
         gmsh.write(self.filename + ".msh")
         self.create_mesh(MPI.COMM_WORLD, gmsh.model, name="SPT100_Simulation_Zone")
         gmsh.finalize()
+
+    def gmsh_callback(self):
+        if gmsh.isInitialized():
+            print("GMSH ya está inicializado")
+            gmsh.clear()
+            gmsh.finalize()
+            print("GMSH finalizado")
+        print("GMSH inicializando...")
+        gmsh.initialize()
 
 if __name__ == "__main__":
     # From GUI inputs:

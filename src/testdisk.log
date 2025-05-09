@@ -1,0 +1,475 @@
+
+
+Wed Apr 30 14:58:11 2025
+Command line: TestDisk
+
+TestDisk 7.1, Data Recovery Utility, July 2019
+Christophe GRENIER <grenier@cgsecurity.org>
+https://www.cgsecurity.org
+OS: Linux, kernel 6.8.0-58-generic (#60-Ubuntu SMP PREEMPT_DYNAMIC Fri Mar 14 18:29:48 UTC 2025) x86_64
+Compiler: GCC 13.2
+ext2fs lib: 1.47.0, ntfs lib: libntfs-3g, reiserfs lib: none, ewf lib: none, curses lib: ncurses 6.4
+Warning: can't get size for Disk /dev/mapper/control - 0 B - 0 sectors, sector size=512
+Hard disk list
+Disk /dev/sda - 1000 GB / 931 GiB - CHS 121601 255 63, sector size=512 - TOSHIBA External USB 3.0
+Disk /dev/loop0 - 4096 B - 8 sectors (RO), sector size=512
+Disk /dev/loop1 - 332 MB / 316 MiB - 648744 sectors (RO), sector size=512
+Disk /dev/loop10 - 11 MB / 11 MiB - 22800 sectors (RO), sector size=512
+Disk /dev/loop11 - 363 MB / 346 MiB - 709280 sectors (RO), sector size=512
+Disk /dev/loop12 - 366 MB / 349 MiB - 716176 sectors (RO), sector size=512
+Disk /dev/loop13 - 11 MB / 10 MiB - 22056 sectors (RO), sector size=512
+Disk /dev/loop14 - 541 MB / 516 MiB - 1056784 sectors (RO), sector size=512
+Disk /dev/loop15 - 96 MB / 91 MiB - 187776 sectors (RO), sector size=512
+Disk /dev/loop16 - 11 MB / 10 MiB - 22176 sectors (RO), sector size=512
+Disk /dev/loop17 - 46 MB / 44 MiB - 91008 sectors (RO), sector size=512
+Disk /dev/loop18 - 46 MB / 44 MiB - 91024 sectors (RO), sector size=512
+Disk /dev/loop19 - 581 KB / 568 KiB - 1136 sectors (RO), sector size=512
+Disk /dev/loop2 - 332 MB / 316 MiB - 648744 sectors (RO), sector size=512
+Disk /dev/loop20 - 311 KB / 304 KiB - 608 sectors (RO), sector size=512
+Disk /dev/loop3 - 66 MB / 63 MiB - 130552 sectors (RO), sector size=512
+Disk /dev/loop4 - 66 MB / 63 MiB - 130568 sectors (RO), sector size=512
+Disk /dev/loop5 - 77 MB / 73 MiB - 151312 sectors (RO), sector size=512
+Disk /dev/loop6 - 77 MB / 73 MiB - 151320 sectors (RO), sector size=512
+Disk /dev/loop7 - 254 MB / 242 MiB - 496448 sectors (RO), sector size=512
+Disk /dev/loop8 - 253 MB / 242 MiB - 495616 sectors (RO), sector size=512
+Disk /dev/loop9 - 11 MB / 11 MiB - 22752 sectors (RO), sector size=512
+Disk /dev/nvme0n1 - 256 GB / 238 GiB - CHS 244198 64 32, sector size=512
+
+Partition table type (auto): EFI GPT
+Disk /dev/nvme0n1 - 256 GB / 238 GiB
+Partition table type: EFI GPT
+Partition table type (auto): EFI GPT
+Disk /dev/nvme0n1 - 256 GB / 238 GiB
+Partition table type: EFI GPT
+
+Interface Advanced
+hdr_size=92
+hdr_lba_self=1
+hdr_lba_alt=500118191 (expected 500118191)
+hdr_lba_start=34
+hdr_lba_end=500118158
+hdr_lba_table=2
+hdr_entries=128
+hdr_entsz=128
+check_part_gpt failed for partition
+ 2 P MS Reserved               206848     239615      32768 [Microsoft reserved partition]
+ 1 P EFI System                  2048     206847     204800 [EFI system partition]
+ 2 P MS Reserved               206848     239615      32768 [Microsoft reserved partition]
+ 3 P MS Data                   239616  352132898  351893283 [Basic data partition] [Acer]
+     NTFS, blocksize=4096, 180 GB / 167 GiB
+ 5 P Linux filesys. data    352133120  498020351  145887232
+ 4 P Windows Recovery Env   498020352  500117503    2097152 [Basic data partition]
+
+Interface Advanced
+hdr_size=92
+hdr_lba_self=1
+hdr_lba_alt=500118191 (expected 500118191)
+hdr_lba_start=34
+hdr_lba_end=500118158
+hdr_lba_table=2
+hdr_entries=128
+hdr_entsz=128
+check_part_gpt failed for partition
+ 2 P MS Reserved               206848     239615      32768 [Microsoft reserved partition]
+ 1 P EFI System                  2048     206847     204800 [EFI system partition]
+ 2 P MS Reserved               206848     239615      32768 [Microsoft reserved partition]
+ 3 P MS Data                   239616  352132898  351893283 [Basic data partition] [Acer]
+     NTFS, blocksize=4096, 180 GB / 167 GiB
+ 5 P Linux filesys. data    352133120  498020351  145887232
+ 4 P Windows Recovery Env   498020352  500117503    2097152 [Basic data partition]
+
+
+dir_partition inode=2
+ 5 P Linux filesys. data    352133120  498020351  145887232
+Directory /
+       2 drwxr-xr-x     0      0      4096 30-Jan-2025 14:39 .
+       2 drwxr-xr-x     0      0      4096 30-Jan-2025 14:39 ..
+      11 drwx------     0      0     16384 24-Jan-2025 13:35 lost+found
+ 3670017 drwxr-xr-x     0      0      4096 18-Apr-2025 12:39 boot
+      12 -rw-------     0      0 2147483648 24-Jan-2025 13:36 swapfile
+ 2097153 drwxr-xr-x     0      0     12288 30-Apr-2025 13:09 etc
+ 3801089 drwxr-xr-x     0      0      4096 23-Feb-2025 17:54 media
+ 4325377 drwxr-xr-x     0      0      4096 12-Feb-2025 20:20 var
+      13 lrwxrwxrwx     0      0         7 24-Jan-2025 13:36 bin
+ 1179649 drwxr-xr-x     0      0      4096 22-Feb-2023 22:57 dev
+ 2490369 drwxr-xr-x     0      0      4096 24-Jan-2025 13:39 home
+      14 lrwxrwxrwx     0      0         7 24-Jan-2025 13:36 lib
+      15 lrwxrwxrwx     0      0         9 30-Jan-2025 14:31 lib32
+      16 lrwxrwxrwx     0      0         9 24-Jan-2025 13:36 lib64
+      17 lrwxrwxrwx     0      0        10 24-Jan-2025 13:36 libx32
+  131073 drwxr-xr-x     0      0      4096 22-Feb-2023 22:57 mnt
+ 3932161 drwxr-xr-x     0      0      4096 10-Apr-2025 16:00 opt
+ 3276801 drwxr-xr-x     0      0      4096 18-Apr-2022 05:28 proc
+ 1572865 drwx------     0      0      4096 30-Apr-2025 14:53 root
+ 4194305 drwxr-xr-x     0      0      4096 24-Jan-2025 13:39 run
+      18 lrwxrwxrwx     0      0         8 24-Jan-2025 13:36 sbin
+ 1048577 drwxr-xr-x     0      0      4096 30-Jan-2025 14:37 snap
+ 1310721 drwxr-xr-x     0      0      4096 22-Feb-2023 22:57 srv
+  262145 drwxr-xr-x     0      0      4096 18-Apr-2022 05:28 sys
+ 1441793 drwxrwxrwt     0      0     12288 30-Apr-2025 14:50 tmp
+  655361 drwxr-xr-x     0      0      4096 30-Jan-2025 14:38 usr
+ 2359297 drwxrwxr-x     0      0      4096 24-Jan-2025 13:39 cdrom
+      19 -rw-r-----     0      0       620 30-Jan-2025 14:39 debug
+ 3014657 drwxr-xr-x     0      0      4096 18-Apr-2024 12:52 lib.usr-is-merged
+ 1966081 drwxr-xr-x     0      0      4096  8-Apr-2024 11:14 bin.usr-is-merged
+ 1835009 drwxr-xr-x     0      0      4096 18-Jul-2024 13:28 sbin.usr-is-merged
+
+dir_partition inode=2490369
+ 5 P Linux filesys. data    352133120  498020351  145887232
+Directory /home
+ 2490369 drwxr-xr-x     0      0      4096 24-Jan-2025 13:39 .
+       2 drwxr-xr-x     0      0      4096 30-Jan-2025 14:39 ..
+ 2490370 drwxr-x---  1000   1000      4096 30-Apr-2025 14:56 miguel
+
+dir_partition inode=2490370
+ 5 P Linux filesys. data    352133120  498020351  145887232
+Directory /home/miguel
+ 2490370 drwxr-x---  1000   1000      4096 30-Apr-2025 14:56 .
+ 2490369 drwxr-xr-x     0      0      4096 24-Jan-2025 13:39 ..
+ 2490371 -rw-r--r--  1000   1000       220 24-Jan-2025 13:39 .bash_logout
+ 2490372 -rw-r--r--  1000   1000       807 24-Jan-2025 13:39 .profile
+ 2490373 -rw-r--r--  1000   1000      4383 25-Mar-2025 09:47 .bashrc
+ 2490374 drwx------  1000   1000      4096 30-Apr-2025 13:07 .cache
+ 2490378 drwx------  1000   1000      4096 14-Feb-2025 09:23 .local
+ 2490381 drwx------  1000   1000      4096 30-Apr-2025 13:08 .config
+ 2490387 drwxr-xr-x  1000   1000      4096  1-Feb-2025 14:34 Desktop
+ 2490388 drwxr-xr-x  1000   1000      4096 30-Apr-2025 13:25 Downloads
+ 2490389 drwxr-xr-x  1000   1000      4096 24-Jan-2025 08:44 Templates
+ 2490390 drwxr-xr-x  1000   1000      4096 24-Jan-2025 08:44 Public
+ 2490391 drwxr-xr-x  1000   1000      4096 10-Apr-2025 16:02 Documents
+ 2490392 drwxr-xr-x  1000   1000      4096 24-Jan-2025 08:44 Music
+ 2490393 drwxr-xr-x  1000   1000      4096 30-Jan-2025 17:26 Pictures
+ 2490394 drwxr-xr-x  1000   1000      4096 24-Jan-2025 08:44 Videos
+ 2490551 drwx------  1000   1000      4096 30-Jan-2025 15:00 snap
+ 2490661 -rw-r--r--  1000   1000         0 24-Jan-2025 13:52 .sudo_as_admin_successful
+ 2493815 drwx------  1000   1000      4096 24-Jan-2025 13:53 .pki
+ 2579435 -rw-------  1000   1000     58334 30-Apr-2025 14:48 .bash_history
+ 2498658 -rw-------  1000   1000         7 14-Feb-2025 08:41 .python_history
+ 2497239 drwx------  1000   1000      4096 14-Feb-2025 09:53 .ssh
+ 2497240 drwx------  1000   1000      4096 30-Apr-2025 13:07 .gnupg
+ 2497151 drwxrwxr-x  1000   1000      4096 24-Jan-2025 15:11 .vscode
+ 2497639 drwxrwxr-x  1000   1000      4096 24-Jan-2025 15:12 .dotnet
+ 2529218 drwx------  1000   1000      4096 25-Jan-2025 10:37 .fltk
+ 2529257 -rw-rw-r--  1000   1000      3251 17-Apr-2025 18:19 .gmshrc
+ 2623196 drwx------  1000   1000      4096  1-Feb-2025 09:54 .gnome
+ 2632950 drwxrwxr-x  1000   1000      4096  9-Feb-2025 19:26 SoftMaker
+ 2651785 drwxrwxr-x  1000   1000      4096 30-Apr-2025 11:56 recovery_output
+ 2656115 drwxrwxr-x  1000   1000      4096 18-Mar-2025 11:13 .designer
+ 2495531 -rw-rw-r--  1000   1000        64 14-Feb-2025 11:37 .gitconfig
+ 2660127 drwxrwxr-x  1000   1000      4096 17-Apr-2025 20:54 miniconda3
+ 3156228 drwxrwxr-x  1000   1000      4096 22-Mar-2025 22:49 .conda
+ 2522811 -rw-rw-r--  1000   1000       128 17-Apr-2025 20:56 .condarc
+ 2578574 -rw-------  1000   1000        20 30-Apr-2025 10:06 .lesshst
+ 2505605 drwxrwxr-x  1000   1000      4096 12-Apr-2025 19:34 .minecraft
+ 2625352 drwxrwxr-x  1000   1000      4096 19-Apr-2025 17:49 Sites
+ 2625354 drwxrwxr-x  1000   1000      4096 19-Apr-2025 18:54 .composer
+ 2555323 -rw-rw-r--  1000   1000       175 20-Apr-2025 09:32 .wget-hsts
+ 2554335 -rw-------  1000   1000       178 19-Apr-2025 18:22 .mysql_history
+ 3145760 drwxr-xr-x     0      0      4096 30-Apr-2025 13:09 R-Studio
+ 2578588 -rw-rw-r--  1000   1000      2464 30-Apr-2025 13:06 testdisk.log
+ 3145742 drwxrwxr-x  1000   1000      4096 30-Apr-2025 12:16 recovered_photorec
+ 2536718 -rw-rw-r--  1000   1000      1024 30-Apr-2025 14:56 ..photorec.sig.swp
+ 2504651 -rw-rw-r--  1000   1000       106 30-Apr-2025 14:53 .photorec.sig
+ 2579434 -rw-------  1000   1000     58334 30-Apr-2025 14:48 .bash_history-20167.tmp
+
+dir_partition inode=2490391
+ 5 P Linux filesys. data    352133120  498020351  145887232
+Directory /home/miguel/Documents
+ 2490391 drwxr-xr-x  1000   1000      4096 10-Apr-2025 16:02 .
+ 2490370 drwxr-x---  1000   1000      4096 30-Apr-2025 14:56 ..
+ 2641298 drwxrwxr-x  1000   1000      4096 22-Mar-2025 23:19 project
+ 2528070 drwxrwxr-x  1000   1000      4096 10-Apr-2025 16:02 curseforge
+ 2510658 -rw-rw-r--  1000   1000   1356742 19-Mar-2025 09:43 SolenoideMagneticField.ipynb
+ 2511900 -rw-rw-r--  1000   1000     31117 20-Mar-2025 19:22 TALLER MODULOS FOTOVOLTAICOS.pdf
+
+dir_partition inode=2641298
+ 5 P Linux filesys. data    352133120  498020351  145887232
+Directory /home/miguel/Documents/project
+ 2641298 drwxrwxr-x  1000   1000      4096 22-Mar-2025 23:19 .
+ 2490391 drwxr-xr-x  1000   1000      4096 10-Apr-2025 16:02 ..
+ 2641299 drwxrwxr-x  1000   1000      4096 30-Apr-2025 10:06 .git
+ 2621667 -rw-rw-r--  1000   1000        32 18-Mar-2025 10:03 README.md
+ 2641347 drwxrwxr-x  1000   1000      4096 14-Feb-2025 10:01 docs
+ 2621666 -rw-rw-r--  1000   1000        23 18-Mar-2025 10:03 .gitignore
+ 2641348 drwxrwxr-x  1000   1000     69632 30-Apr-2025 14:58 src
+ 2641349 drwxrwxr-x  1000   1000      4096 14-Feb-2025 10:01 tests
+ 2641350 drwxrwxr-x  1000   1000      4096 14-Feb-2025 10:01 assets
+ 2641351 drwxrwxr-x  1000   1000      4096 14-Feb-2025 10:01 scripts
+
+dir_partition inode=2641348
+ 5 P Linux filesys. data    352133120  498020351  145887232
+Directory /home/miguel/Documents/project/src
+ 2641348 drwxrwxr-x  1000   1000     69632 30-Apr-2025 14:58 .
+ 2641298 drwxrwxr-x  1000   1000      4096 22-Mar-2025 23:19 ..
+ 2621909 -rw-rw-r--  1000   1000       338 30-Apr-2025 14:52 fidentify.log
+ 2623049 -rw-r--r--     0      0      4489 30-Apr-2025 15:00 testdisk.log
+ 2668885 -rw-rw-r--  1000   1000       875 25-Mar-2025 09:25 E_Visual.py
+ 2621669 -rw-rw-r--  1000   1000      8830 30-Apr-2025 10:01 Laplace_E_Solution.py
+ 2641352 -rw-rw-r--  1000   1000         0 30-Apr-2025 10:06 main.py
+ 2625426 -rw-rw-r--  1000   1000      5388 30-Apr-2025 10:01 electrons_density_solver.py
+ 2621670 -rw-rw-r--  1000   1000     13715 25-Mar-2025 09:25 PIC.py
+ 2621677 drwxrwxr-x  1000   1000     36864 30-Apr-2025 10:01 data_files
+ 2622387 -rw-rw-r--  1000   1000      3429 30-Apr-2025 10:01 Visualize_Efield.py
+ 2622185 -rw-rw-r--  1000   1000      6979 19-Mar-2025 10:54 ionization_thruster.py
+ 2627910 -rw-rw-r--  1000   1000       834 18-Mar-2025 10:03 thermostat.py
+ 2621676 -rw-rw-r--  1000   1000     13226 22-Mar-2025 17:27 charge_density.py
+ 2625468 -rw-rw-r--  1000   1000       195 18-Mar-2025 11:01 interface_ui.py
+ 2647188 -rw-rw-r--  1000   1000      8471 30-Apr-2025 10:01 Poisson_Solution.py
+ 2623650 -rw-rw-r--  1000   1000      9829 30-Apr-2025 10:01 Gen_Mallado.py
+ 2623651 -rw-r--r--     0      0     40960 30-Apr-2025 14:50 photorec.se2
+ 2651840 -rw-r--r--     0      0    910566 30-Apr-2025 14:54 photorec.ses
+ 2621671 -rw-rw-r--  1000   1000      6154 25-Mar-2025 09:25 PIC_SIMULATION.py
+ 2626916 -rw-rw-r--  1000   1000      7061 22-Mar-2025 20:31 PIC_SIMULATION_noGPU.py
+ 2625889 -rw-rw-r--  1000   1000     10053 30-Apr-2025 10:01 PIC_noGPU.py
+ 2650970 -rw-rw-r--  1000   1000      9558 19-Mar-2025 09:46 magnetic_field_noGPU.py
+ 2626356 -rw-rw-r--  1000   1000     13950 25-Mar-2025 09:25 magnetic_field.py
+ 2621674 drwxrwxr-x  1000   1000      4096 30-Apr-2025 10:06 __pycache__
+ 2621672 -rw-rw-r--  1000   1000      3744 22-Mar-2025 23:17 montecarlo_ionization.py
+ 2651810 -rw-rw-r--  1000   1000      9646 30-Apr-2025 12:30 posibles_py.txt
+Directory /home/miguel/Documents/project
+ 2641298 drwxrwxr-x  1000   1000      4096 22-Mar-2025 23:19 .
+ 2490391 drwxr-xr-x  1000   1000      4096 10-Apr-2025 16:02 ..
+ 2641299 drwxrwxr-x  1000   1000      4096 30-Apr-2025 10:06 .git
+ 2621667 -rw-rw-r--  1000   1000        32 18-Mar-2025 10:03 README.md
+ 2641347 drwxrwxr-x  1000   1000      4096 14-Feb-2025 10:01 docs
+ 2621666 -rw-rw-r--  1000   1000        23 18-Mar-2025 10:03 .gitignore
+ 2641348 drwxrwxr-x  1000   1000     69632 30-Apr-2025 14:58 src
+ 2641349 drwxrwxr-x  1000   1000      4096 14-Feb-2025 10:01 tests
+ 2641350 drwxrwxr-x  1000   1000      4096 14-Feb-2025 10:01 assets
+ 2641351 drwxrwxr-x  1000   1000      4096 14-Feb-2025 10:01 scripts
+
+dir_partition inode=2641299
+ 5 P Linux filesys. data    352133120  498020351  145887232
+Directory /home/miguel/Documents/project/.git
+ 2641299 drwxrwxr-x  1000   1000      4096 30-Apr-2025 10:06 .
+ 2641298 drwxrwxr-x  1000   1000      4096 22-Mar-2025 23:19 ..
+ 2641300 drwxrwxr-x  1000   1000      4096 14-Feb-2025 09:54 branches
+ 2641301 drwxrwxr-x  1000   1000      4096 14-Feb-2025 09:54 info
+ 2641303 drwxrwxr-x  1000   1000      4096 14-Feb-2025 09:54 hooks
+ 2641318 -rw-rw-r--  1000   1000        73 14-Feb-2025 09:54 description
+ 2641319 drwxrwxr-x  1000   1000      4096 18-Mar-2025 10:05 refs
+ 2641323 drwxrwxr-x  1000   1000      4096 16-Apr-2025 11:17 objects
+ 2641340 -rw-rw-r--  1000   1000        21 14-Feb-2025 09:54 HEAD
+ 2656628 -rw-rw-r--  1000   1000       333 22-Mar-2025 23:16 config
+ 2641335 drwxrwxr-x  1000   1000      4096 14-Feb-2025 09:54 logs
+ 2641355 -rw-rw-r--  1000   1000       108 16-Apr-2025 11:17 FETCH_HEAD
+ 2651058 -rw-rw-r--  1000   1000      3711 30-Apr-2025 10:06 index
+ 2641332 -rw-rw-r--  1000   1000       112 14-Feb-2025 09:54 packed-refs
+ 2623512 -rw-rw-r--  1000   1000        59 25-Mar-2025 10:45 COMMIT_EDITMSG
+ 2621550 -rw-rw-r--  1000   1000        41 30-Apr-2025 10:06 ORIG_HEAD
+Directory /home/miguel/Documents/project
+ 2641298 drwxrwxr-x  1000   1000      4096 22-Mar-2025 23:19 .
+ 2490391 drwxr-xr-x  1000   1000      4096 10-Apr-2025 16:02 ..
+ 2641299 drwxrwxr-x  1000   1000      4096 30-Apr-2025 10:06 .git
+ 2621667 -rw-rw-r--  1000   1000        32 18-Mar-2025 10:03 README.md
+ 2641347 drwxrwxr-x  1000   1000      4096 14-Feb-2025 10:01 docs
+ 2621666 -rw-rw-r--  1000   1000        23 18-Mar-2025 10:03 .gitignore
+ 2641348 drwxrwxr-x  1000   1000     69632 30-Apr-2025 14:58 src
+ 2641349 drwxrwxr-x  1000   1000      4096 14-Feb-2025 10:01 tests
+ 2641350 drwxrwxr-x  1000   1000      4096 14-Feb-2025 10:01 assets
+ 2641351 drwxrwxr-x  1000   1000      4096 14-Feb-2025 10:01 scripts
+Directory /home/miguel/Documents
+ 2490391 drwxr-xr-x  1000   1000      4096 10-Apr-2025 16:02 .
+ 2490370 drwxr-x---  1000   1000      4096 30-Apr-2025 14:56 ..
+ 2641298 drwxrwxr-x  1000   1000      4096 22-Mar-2025 23:19 project
+ 2528070 drwxrwxr-x  1000   1000      4096 10-Apr-2025 16:02 curseforge
+ 2510658 -rw-rw-r--  1000   1000   1356742 19-Mar-2025 09:43 SolenoideMagneticField.ipynb
+ 2511900 -rw-rw-r--  1000   1000     31117 20-Mar-2025 19:22 TALLER MODULOS FOTOVOLTAICOS.pdf
+Directory /home/miguel
+ 2490370 drwxr-x---  1000   1000      4096 30-Apr-2025 14:56 .
+ 2490369 drwxr-xr-x     0      0      4096 24-Jan-2025 13:39 ..
+ 2490371 -rw-r--r--  1000   1000       220 24-Jan-2025 13:39 .bash_logout
+ 2490372 -rw-r--r--  1000   1000       807 24-Jan-2025 13:39 .profile
+ 2490373 -rw-r--r--  1000   1000      4383 25-Mar-2025 09:47 .bashrc
+ 2490374 drwx------  1000   1000      4096 30-Apr-2025 13:07 .cache
+ 2490378 drwx------  1000   1000      4096 14-Feb-2025 09:23 .local
+ 2490381 drwx------  1000   1000      4096 30-Apr-2025 13:08 .config
+ 2490387 drwxr-xr-x  1000   1000      4096  1-Feb-2025 14:34 Desktop
+ 2490388 drwxr-xr-x  1000   1000      4096 30-Apr-2025 13:25 Downloads
+ 2490389 drwxr-xr-x  1000   1000      4096 24-Jan-2025 08:44 Templates
+ 2490390 drwxr-xr-x  1000   1000      4096 24-Jan-2025 08:44 Public
+ 2490391 drwxr-xr-x  1000   1000      4096 10-Apr-2025 16:02 Documents
+ 2490392 drwxr-xr-x  1000   1000      4096 24-Jan-2025 08:44 Music
+ 2490393 drwxr-xr-x  1000   1000      4096 30-Jan-2025 17:26 Pictures
+ 2490394 drwxr-xr-x  1000   1000      4096 24-Jan-2025 08:44 Videos
+ 2490551 drwx------  1000   1000      4096 30-Jan-2025 15:00 snap
+ 2490661 -rw-r--r--  1000   1000         0 24-Jan-2025 13:52 .sudo_as_admin_successful
+ 2493815 drwx------  1000   1000      4096 24-Jan-2025 13:53 .pki
+ 2579435 -rw-------  1000   1000     58334 30-Apr-2025 14:48 .bash_history
+ 2498658 -rw-------  1000   1000         7 14-Feb-2025 08:41 .python_history
+ 2497239 drwx------  1000   1000      4096 14-Feb-2025 09:53 .ssh
+ 2497240 drwx------  1000   1000      4096 30-Apr-2025 13:07 .gnupg
+ 2497151 drwxrwxr-x  1000   1000      4096 24-Jan-2025 15:11 .vscode
+ 2497639 drwxrwxr-x  1000   1000      4096 24-Jan-2025 15:12 .dotnet
+ 2529218 drwx------  1000   1000      4096 25-Jan-2025 10:37 .fltk
+ 2529257 -rw-rw-r--  1000   1000      3251 17-Apr-2025 18:19 .gmshrc
+ 2623196 drwx------  1000   1000      4096  1-Feb-2025 09:54 .gnome
+ 2632950 drwxrwxr-x  1000   1000      4096  9-Feb-2025 19:26 SoftMaker
+ 2651785 drwxrwxr-x  1000   1000      4096 30-Apr-2025 11:56 recovery_output
+ 2656115 drwxrwxr-x  1000   1000      4096 18-Mar-2025 11:13 .designer
+ 2495531 -rw-rw-r--  1000   1000        64 14-Feb-2025 11:37 .gitconfig
+ 2660127 drwxrwxr-x  1000   1000      4096 17-Apr-2025 20:54 miniconda3
+ 3156228 drwxrwxr-x  1000   1000      4096 22-Mar-2025 22:49 .conda
+ 2522811 -rw-rw-r--  1000   1000       128 17-Apr-2025 20:56 .condarc
+ 2578574 -rw-------  1000   1000        20 30-Apr-2025 10:06 .lesshst
+ 2505605 drwxrwxr-x  1000   1000      4096 12-Apr-2025 19:34 .minecraft
+ 2625352 drwxrwxr-x  1000   1000      4096 19-Apr-2025 17:49 Sites
+ 2625354 drwxrwxr-x  1000   1000      4096 19-Apr-2025 18:54 .composer
+ 2555323 -rw-rw-r--  1000   1000       175 20-Apr-2025 09:32 .wget-hsts
+ 2554335 -rw-------  1000   1000       178 19-Apr-2025 18:22 .mysql_history
+ 3145760 drwxr-xr-x     0      0      4096 30-Apr-2025 13:09 R-Studio
+ 2578588 -rw-rw-r--  1000   1000      2464 30-Apr-2025 13:06 testdisk.log
+ 3145742 drwxrwxr-x  1000   1000      4096 30-Apr-2025 12:16 recovered_photorec
+ 2536718 -rw-rw-r--  1000   1000      1024 30-Apr-2025 14:56 ..photorec.sig.swp
+ 2504651 -rw-rw-r--  1000   1000       106 30-Apr-2025 14:53 .photorec.sig
+ 2579434 -rw-------  1000   1000     58334 30-Apr-2025 14:48 .bash_history-20167.tmp
+Directory /home
+ 2490369 drwxr-xr-x     0      0      4096 24-Jan-2025 13:39 .
+       2 drwxr-xr-x     0      0      4096 30-Jan-2025 14:39 ..
+ 2490370 drwxr-x---  1000   1000      4096 30-Apr-2025 14:56 miguel
+Directory /
+       2 drwxr-xr-x     0      0      4096 30-Jan-2025 14:39 .
+       2 drwxr-xr-x     0      0      4096 30-Jan-2025 14:39 ..
+      11 drwx------     0      0     16384 24-Jan-2025 13:35 lost+found
+ 3670017 drwxr-xr-x     0      0      4096 18-Apr-2025 12:39 boot
+      12 -rw-------     0      0 2147483648 24-Jan-2025 13:36 swapfile
+ 2097153 drwxr-xr-x     0      0     12288 30-Apr-2025 13:09 etc
+ 3801089 drwxr-xr-x     0      0      4096 23-Feb-2025 17:54 media
+ 4325377 drwxr-xr-x     0      0      4096 12-Feb-2025 20:20 var
+      13 lrwxrwxrwx     0      0         7 24-Jan-2025 13:36 bin
+ 1179649 drwxr-xr-x     0      0      4096 22-Feb-2023 22:57 dev
+ 2490369 drwxr-xr-x     0      0      4096 24-Jan-2025 13:39 home
+      14 lrwxrwxrwx     0      0         7 24-Jan-2025 13:36 lib
+      15 lrwxrwxrwx     0      0         9 30-Jan-2025 14:31 lib32
+      16 lrwxrwxrwx     0      0         9 24-Jan-2025 13:36 lib64
+      17 lrwxrwxrwx     0      0        10 24-Jan-2025 13:36 libx32
+  131073 drwxr-xr-x     0      0      4096 22-Feb-2023 22:57 mnt
+ 3932161 drwxr-xr-x     0      0      4096 10-Apr-2025 16:00 opt
+ 3276801 drwxr-xr-x     0      0      4096 18-Apr-2022 05:28 proc
+ 1572865 drwx------     0      0      4096 30-Apr-2025 14:53 root
+ 4194305 drwxr-xr-x     0      0      4096 24-Jan-2025 13:39 run
+      18 lrwxrwxrwx     0      0         8 24-Jan-2025 13:36 sbin
+ 1048577 drwxr-xr-x     0      0      4096 30-Jan-2025 14:37 snap
+ 1310721 drwxr-xr-x     0      0      4096 22-Feb-2023 22:57 srv
+  262145 drwxr-xr-x     0      0      4096 18-Apr-2022 05:28 sys
+ 1441793 drwxrwxrwt     0      0     12288 30-Apr-2025 14:50 tmp
+  655361 drwxr-xr-x     0      0      4096 30-Jan-2025 14:38 usr
+ 2359297 drwxrwxr-x     0      0      4096 24-Jan-2025 13:39 cdrom
+      19 -rw-r-----     0      0       620 30-Jan-2025 14:39 debug
+ 3014657 drwxr-xr-x     0      0      4096 18-Apr-2024 12:52 lib.usr-is-merged
+ 1966081 drwxr-xr-x     0      0      4096  8-Apr-2024 11:14 bin.usr-is-merged
+ 1835009 drwxr-xr-x     0      0      4096 18-Jul-2024 13:28 sbin.usr-is-merged
+search_superblock
+
+recover_EXT2: s_block_group_nr=0/556, s_mnt_count=60/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 18235904
+recover_EXT2: part_size 145887232
+Filesystem created: Fri Jan 24 13:35:57 2025
+Last mount time:    Wed Apr 30 09:31:31 2025
+Ext2 superblock found at sector 2 (block=0, blocksize=4096)
+
+block_group_nr 1
+
+recover_EXT2: "e2fsck -b 32768 -B 4096 device" may be needed
+recover_EXT2: s_block_group_nr=1/556, s_mnt_count=0/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 18235904
+recover_EXT2: part_size 145887232
+Filesystem created: Fri Jan 24 13:35:57 2025
+Ext2 superblock found at sector 262144 (block=32768, blocksize=4096)
+
+block_group_nr 3
+
+recover_EXT2: "e2fsck -b 98304 -B 4096 device" may be needed
+recover_EXT2: s_block_group_nr=3/556, s_mnt_count=0/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 18235904
+recover_EXT2: part_size 145887232
+Filesystem created: Fri Jan 24 13:35:57 2025
+Ext2 superblock found at sector 786432 (block=98304, blocksize=4096)
+
+block_group_nr 5
+
+recover_EXT2: "e2fsck -b 163840 -B 4096 device" may be needed
+recover_EXT2: s_block_group_nr=5/556, s_mnt_count=0/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 18235904
+recover_EXT2: part_size 145887232
+Filesystem created: Fri Jan 24 13:35:57 2025
+Ext2 superblock found at sector 1310720 (block=163840, blocksize=4096)
+
+block_group_nr 7
+
+recover_EXT2: "e2fsck -b 229376 -B 4096 device" may be needed
+recover_EXT2: s_block_group_nr=7/556, s_mnt_count=0/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 18235904
+recover_EXT2: part_size 145887232
+Filesystem created: Fri Jan 24 13:35:57 2025
+Ext2 superblock found at sector 1835008 (block=229376, blocksize=4096)
+
+block_group_nr 9
+
+recover_EXT2: "e2fsck -b 294912 -B 4096 device" may be needed
+recover_EXT2: s_block_group_nr=9/556, s_mnt_count=0/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 18235904
+recover_EXT2: part_size 145887232
+Filesystem created: Fri Jan 24 13:35:57 2025
+Ext2 superblock found at sector 2359296 (block=294912, blocksize=4096)
+
+block_group_nr 25
+
+recover_EXT2: "e2fsck -b 819200 -B 4096 device" may be needed
+recover_EXT2: s_block_group_nr=25/556, s_mnt_count=0/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 18235904
+recover_EXT2: part_size 145887232
+Filesystem created: Fri Jan 24 13:35:57 2025
+Ext2 superblock found at sector 6553600 (block=819200, blocksize=4096)
+
+block_group_nr 27
+
+recover_EXT2: "e2fsck -b 884736 -B 4096 device" may be needed
+recover_EXT2: s_block_group_nr=27/556, s_mnt_count=0/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 18235904
+recover_EXT2: part_size 145887232
+Filesystem created: Fri Jan 24 13:35:57 2025
+Ext2 superblock found at sector 7077888 (block=884736, blocksize=4096)
+
+block_group_nr 49
+
+recover_EXT2: "e2fsck -b 1605632 -B 4096 device" may be needed
+recover_EXT2: s_block_group_nr=49/556, s_mnt_count=0/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 18235904
+recover_EXT2: part_size 145887232
+Filesystem created: Fri Jan 24 13:35:57 2025
+Ext2 superblock found at sector 12845056 (block=1605632, blocksize=4096)
+
+block_group_nr 81
+
+recover_EXT2: "e2fsck -b 2654208 -B 4096 device" may be needed
+recover_EXT2: s_block_group_nr=81/556, s_mnt_count=0/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 18235904
+recover_EXT2: part_size 145887232
+Filesystem created: Fri Jan 24 13:35:57 2025
+Ext2 superblock found at sector 21233664 (block=2654208, blocksize=4096)
+  Linux filesys. data    352133120  498020351  145887232
+superblock 0, blocksize=4096 []
+superblock 32768, blocksize=4096 []
+superblock 98304, blocksize=4096 []
+superblock 163840, blocksize=4096 []
+superblock 229376, blocksize=4096 []
+superblock 294912, blocksize=4096 []
+superblock 819200, blocksize=4096 []
+superblock 884736, blocksize=4096 []
+superblock 1605632, blocksize=4096 []
+superblock 2654208, blocksize=4096 []
+
+To repair the filesystem using alternate superblock, run
+fsck.ext4 -p -b superblock -B blocksize device
+SIGINT detected! TestDisk has been killed.
