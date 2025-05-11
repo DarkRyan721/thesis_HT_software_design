@@ -23,7 +23,7 @@ import gmsh
 # 🧩 Módulos propios
 from E_field_solver import ElectricFieldSolver
 from Gen_Mallado import HallThrusterMesh
-
+from styles.stylesheets import *
 
 class MainWindow(QtW.QMainWindow):
     def __init__(self):
@@ -41,7 +41,18 @@ class MainWindow(QtW.QMainWindow):
         self.prev_params_electric_field = (None, None)
         self.setStyleSheet(self.self_Style())
 
-        self.central_views = QtW.QStackedWidget()
+
+        self.viewer = None
+        self.tab_buttons = []
+        self.parameters_views = None
+        self.mesh_instance = None
+        self.current_mesh = None
+        self.prev_params_mesh = (None, None, None)
+        self.prev_params_electric_field = (None, None)
+        self.chk_show_axes = None
+        self.chk_show_bounds = None
+        self.combo_render_mode = None
+        self.opacity_slider = None
 
     def _setup_ui(self):
         #_____________________________________________________________________________________________
@@ -57,13 +68,12 @@ class MainWindow(QtW.QMainWindow):
 
         self.Parameters = self.set_Parameters()
         self.Options = self.set_Options()
-        self.View_Part = self.set_View_Part()
+        self.View_Part = self.set_View_Part()      
 
 
         self.frame.addWidget(self.Options, stretch=0.3)
         self.frame.addWidget(self.Parameters, stretch=1)
         self.frame.addWidget(self.View_Part, stretch=2)
-
 
         #_____________________________________________________________________________________________
         #                   Añadiendo las configuraciones al frame base y frame principal
@@ -72,58 +82,8 @@ class MainWindow(QtW.QMainWindow):
         self.setCentralWidget(central_widget)
 
     def set_Options(self):
-        self.style_btn = """
-            QPushButton {
-                background-color: #131313;
-                color: #ffffff;
-                font-size: 30px;
-                margin-top: 10px;
-                font-weight: bold;
-                border-radius: 10px;
-                text-align: center;
-                padding: 5px;  /* afecta el contenido interno */
-                margin-left: 5px;  /* esto sí separa del borde */
-                margin-right: 5px;
-            }
-
-            QPushButton:hover {
-                background-color: #ffffff;
-                color: #131313;
-                padding: 5px;  /* afecta el contenido interno */
-                margin-left: 5px;  /* esto sí separa del borde */
-                margin-right: 5px;
-            }
-            QPushButton:pressed {
-                background-color: #212121;
-                color: #131313;
-                padding: 5px;  /* afecta el contenido interno */
-                margin-left: 5px;  /* esto sí separa del borde */
-                margin-right: 5px;
-            }
-
-            QPushButton:disabled {
-                background-color: #131313;
-                color: #393939;
-                padding: 5px;  /* afecta el contenido interno */
-                margin-left: 5px;  /* esto sí separa del borde */
-                margin-right: 5px;
-            }
-        """
-        self.style_btn_active = """
-            QPushButton {
-                background-color: #2c2c2c;
-                color: #ffffff;
-                font-size: 30px;
-                margin-top: 10px;
-                font-weight: bold;
-                border-radius: 10px;
-                text-align: center;
-                padding: 5px;  /* afecta el contenido interno */
-                margin-left: 5px;  /* esto sí separa del borde */
-                margin-right: 0;
-                border-top-right-radius: 0px;
-            border-bottom-right-radius: 0px;
-            }"""
+        self.style_btn = button_style()
+        self.style_btn_active = button_activate_style()
         #_____________________________________________________________________________________________
         #                   Creacion del frame base y layout vertical para [Options]
 
@@ -207,6 +167,7 @@ class MainWindow(QtW.QMainWindow):
         self.viewer.add_axes(interactive=True)
         self.viewer.setSizePolicy(QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Expanding)
 
+
         # Paso 2: Crear worker y conectar señal
         self.worker = MeshLoaderWorker()
         self.worker.finished.connect(self.update_viewer)
@@ -216,7 +177,6 @@ class MainWindow(QtW.QMainWindow):
 
         VPart_layout.addWidget(self.viewer)
         frame_VPart.setLayout(VPart_layout)
-
 
         return frame_VPart
 
@@ -228,29 +188,16 @@ class MainWindow(QtW.QMainWindow):
             self.frame_content.setMinimumSize(new_width, new_height)
 
     def on_dynamic_tab_clicked(self, index, btn):
-        # # Crear el nuevo contenido según el índice
-        # if index == 0:
-        #     self.parameters_views.addWidget(self.Home_Options())
-        # elif index == 1:
-        #     self.parameters_views.addWidget(self.Mesh_Options())
-        # elif index == 2:
-        #     self.parameters_views.addWidget(self.LaPlace_Options())
-        # elif index == 3:
-        #     self.parameters_views.addWidget(self.MField_Options())
-        # elif index == 4:
-        #     widget = self.Density_Options()
-        #     self.parameters_views.addWidget(self.Density_Options())
-        # elif index == 5:
-        #     self.parameters_views.addWidget(self.Simulation_Options())
-        # else:
-        #     widget = QtW.QLabel("Opción desconocida")
-
-        # self.parameters_views.setCurrentIndex(index)
-
-        # # Marcar el botón como activo
-        # self.set_active_button(btn)
         self.parameters_views.setCurrentIndex(index)
         self.set_active_button(btn)
+        self.viewer.clear()
+        self.viewer.reset_camera()
+        if index == 2:  # LaPlace tab
+            try:
+                print("Cargando campo electrico")
+                self.add_field_vectors_from_npy("./data_files/Electric_Field_np.npy")
+            except Exception as e:
+                print(f"⚠️ No se pudo cargar el campo eléctrico: {e}")
 
     def set_active_button(self, active_btn):
         for btn in self.tab_buttons:
@@ -375,12 +322,33 @@ class MainWindow(QtW.QMainWindow):
         update_btn.clicked.connect(self.on_update_clicked_Electric_field)
         layout.addWidget(update_btn)
 
+
         style_panel = self.create_style_panel()
         layout.addWidget(style_panel)
         layout.addStretch()
 
 
         return EField_widget
+
+    def add_field_vectors_from_npy(self, npy_path, scale=0.01):
+        data = np.load(npy_path)
+        if data.shape[1] < 6:
+            raise ValueError("El archivo .npy debe contener [x, y, z, Ex, Ey, Ez]")
+
+        points = data[:, :3]
+        vectors = data[:, 3:]
+        magnitudes = np.linalg.norm(vectors, axis=1)
+        log_magnitudes = np.log10(magnitudes + 1e-3)
+
+        mesh = pv.PolyData(points)
+        mesh["vectors"] = vectors
+        mesh["magnitude"] = log_magnitudes
+
+        self.viewer.clear()
+        self.viewer.add_mesh(mesh.glyph(orient="vectors", scale=False, factor=scale),
+                            scalars="magnitude", cmap="plasma")
+        self.viewer.add_axes(interactive=True)
+        self.viewer.reset_camera()
 
     def MField_Options(self):
         print("MField")
@@ -427,7 +395,6 @@ class MainWindow(QtW.QMainWindow):
         else:
             print("⚠️ No se han realizado cambios en la malla.")
 
-
     def on_update_clicked_Electric_field(self):
         voltaje = float(self.Volt.text())
         voltaje_Cath = float(self.Volt_Cath.text())
@@ -438,6 +405,7 @@ class MainWindow(QtW.QMainWindow):
         if new_params != self.prev_params_electric_field:
             print("🔄 ¡Parámetros cambiaron:", new_params)
             self.prev_params_electric_field = new_params
+            solver_electric_field = ElectricFieldSolver()
 
         else:
             print("⚠️ No se han realizado cambios en la malla.")
@@ -595,89 +563,33 @@ class MainWindow(QtW.QMainWindow):
             )
         self.viewer.reset_camera()
 
-    def checkbox_style(self):
-        return """
-        QCheckBox {
-            spacing: 8px;
-            color: white;
-            font-weight: normal;
-        }
 
-        QCheckBox::indicator {
-            width: 18px;
-            height: 18px;
-            border: 1px solid #888;
-            border-radius: 4px;
-            background: #2b2b2b;
-        }
-
-        QCheckBox::indicator:checked {
-            background-color: #5c6bc0;
-            border: 1px solid #5c6bc0;
-        }
-
-        QCheckBox::indicator:hover {
-            border: 1px solid #aaaaaa;
-        }
+    def add_potential_field_from_npy(viewer, npy_path):
         """
+        Carga y visualiza el potencial eléctrico escalar desde un archivo .npy.
 
-    def button_style(self):
-        return """
-            QPushButton {
-                background-color: #6082B6;
-                color: white;
-                font-weight: bold;
-                padding: 6px 12px;
-                border-radius: 6px;
-                margin-top: 15px;
-            }
-            QPushButton:hover {
-                background-color: #5c6bc0;
-            }
-            QPushButton:pressed {
-                background-color: #303f9f;
-            }
-            QPushButton:disabled {
-                background-color: #9e9e9e;
-                color: #eeeeee;
-            }
+        Parámetros:
+        - viewer: Instancia de QtInteractor
+        - npy_path: Ruta al archivo con [x, y, z, phi]
         """
+        import numpy as np
+        import pyvista as pv
 
-    def self_Style(self):
-        return """
-            QGroupBox {
-                font-weight: bold;
-                border: 1px solid #444;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding: 5px;
-            }
+        data = np.load(npy_path)
+        if data.shape[1] < 4:
+            raise ValueError("El archivo .npy debe contener [x, y, z, phi]")
 
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                left: 10px;
-                padding: 0 3px;
-                color: white;
-            }
+        points = data[:, :3]
+        phi = data[:, 3]
 
-            QLabel {
-                color: white;
-            }
+        mesh = pv.PolyData(points)
+        mesh["potential"] = phi
 
-            QLineEdit {
-                background-color: #1e1e1e;
-                color: white;
-                border: 1px solid #555;
-                padding: 2px;
-                border-radius: 3px;
-            }
-            QFrame#VPartFrame {
-                background-color: #D3D3D3;
-                border-left: 2px solid #818589;
-                border-radius: 0px;
-            }
-        """
+        viewer.clear()
+        viewer.add_mesh(mesh, scalars="potential", cmap="viridis", point_size=5)
+        viewer.add_axes(interactive=True)
+        viewer.reset_camera()
+
 
 class MeshLoaderWorker(QThread):
     finished = Signal(object)
