@@ -10,6 +10,8 @@ import numpy as np
 from mpi4py import MPI
 from dolfinx.io import XDMFFile
 import dolfinx.io.gmshio as gmshio
+import pyvista as pv
+import os
 
 class HallThrusterMesh:
     """
@@ -88,13 +90,65 @@ class HallThrusterMesh:
                     matched.append(tag)
         return matched
 
-    def generate(self):
+    def visualize_mesh_views(mesh_path,show_grid=True):
+        """
+        Visualize the mesh using PyVista in XY, YZ, XZ planes and isometric view.
 
-        self.gmsh_callback()
+        Parameters:
+            mesh_path (str): Path to the .msh file exported from Gmsh
+        """
+
+        if not os.path.exists(mesh_path):
+            raise FileNotFoundError(f"Mesh file not found: {mesh_path}")
+
+        print(f"Loading mesh from {mesh_path} ...")
+        mesh = pv.read(mesh_path)
+
+        yz_slice = mesh.slice(normal='x')  # YZ plane
+
+        mesh_color = "lightblue"
+        edge_color = "black"
+        bg_color = "white"
+
+        # -------------------
+        # YZ Plane View
+        # -------------------
+        plotter_yz = pv.Plotter(window_size=(800, 600))
+        plotter_yz.set_background(bg_color)
+        plotter_yz.add_text("Plano YZ", position="upper_edge", font_size=14)
+        plotter_yz.add_mesh(yz_slice, color=mesh_color, show_edges=True, edge_color=edge_color, line_width=1)
+        plotter_yz.view_yz()
+        if show_grid:
+            plotter_yz.show_axes()
+            plotter_yz.show_bounds(
+                xlabel="X [m]", ylabel="Y [m]", zlabel="Z [m]",
+                location='outer', all_edges=True, grid='front'
+            )
+        plotter_yz.show()
+
+        # -------------------
+        # Isometric View
+        # -------------------
+        plotter_iso = pv.Plotter(window_size=(800, 600))
+        plotter_iso.set_background(bg_color)
+        plotter_iso.add_text("Vista Isométrica", position="upper_edge", font_size=14)
+        plotter_iso.add_mesh(mesh, color=mesh_color, opacity=0.5, show_edges=True, edge_color=edge_color, line_width=0.8)
+        plotter_iso.view_isometric()
+        if show_grid:
+            plotter_iso.show_axes()
+            plotter_iso.show_bounds(
+                xlabel="X [m]", ylabel="Y [m]", zlabel="Z [m]",
+                location='outer', all_edges=True, grid='front'
+            )
+        plotter_iso.show()
+
+
+    def generate(self):
         """
         Main method to build geometry, assign physical groups, apply mesh refinement,
         generate the mesh, and export it.
         """
+        gmsh.initialize()
         gmsh.model.add("SPT100_Simulation_Zone")
         R_big, R_small, H, L = self.R_big, self.R_small, self.H, self.L
 
@@ -237,9 +291,9 @@ class HallThrusterMesh:
         all_surfaces = gmsh.model.getEntities(2)
         outlet_plume_surfaces_new = self.find_matching_surfaces(original_outlet_coords, all_surfaces)
         cathode_surfaces_new = self.find_matching_surfaces(original_cathode_coords,all_surfaces)
-        for tag in [29, 28, 27]:
-            if tag in cathode_surfaces_new:
-                cathode_surfaces_new.remove(tag)
+        cathode_surfaces_new.remove(29)
+        cathode_surfaces_new.remove(28)
+        cathode_surfaces_new.remove(27)
 
         # Identify inlet, outlet, and wall surfaces by their center-of-mass coordinates
         inlet_surfaces = []
@@ -302,15 +356,6 @@ class HallThrusterMesh:
         self.create_mesh(MPI.COMM_WORLD, gmsh.model, name="SPT100_Simulation_Zone")
         gmsh.finalize()
 
-    def gmsh_callback(self):
-        if gmsh.isInitialized():
-            print("GMSH ya está inicializado")
-            gmsh.clear()
-            gmsh.finalize()
-            print("GMSH finalizado")
-        print("GMSH inicializando...")
-        gmsh.initialize()
-
 if __name__ == "__main__":
     # From GUI inputs:
     outer_radius = 0.1/2 #0.1/2
@@ -319,3 +364,4 @@ if __name__ == "__main__":
     refinement = "medium"
     mesh_gen = HallThrusterMesh(R_big=outer_radius, R_small=inner_radius, H=height, refinement_level=refinement)
     mesh_gen.generate()
+    HallThrusterMesh.visualize_mesh_views("data_files/SimulationZone.msh")
