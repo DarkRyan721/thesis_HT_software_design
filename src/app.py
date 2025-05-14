@@ -1,6 +1,6 @@
 import sys
 from PySide6.QtWidgets import QApplication
-from window import MainWindow  # Asegúrate que este nombre coincide con tu archivo .py
+from main_window import MainWindow  # Asegúrate que este nombre coincide con tu archivo .py
 import os
 import PySide6
 

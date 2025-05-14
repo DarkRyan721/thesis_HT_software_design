@@ -1,4 +1,4 @@
-def checkbox_style(self):
+def checkbox_style():
     return """
     QCheckBox {
         spacing: 8px;
@@ -19,34 +19,37 @@ def checkbox_style(self):
         border: 1px solid #5c6bc0;
     }
 
-    QCheckBox::indicator:hover {
+    QCheckBox::indicator:hover {a
         border: 1px solid #aaaaaa;
     }
     """
 
-def button_style(self):
+def button_parameters_style():
     return """
         QPushButton {
-            background-color: #6082B6;
+            background-color: #4a90e2;
             color: white;
-            font-weight: bold;
-            padding: 6px 12px;
-            border-radius: 6px;
-            margin-top: 15px;
+            font-weight: 600;
+            font-size: 13px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            border: 1px solid #3a70b2;
         }
         QPushButton:hover {
-            background-color: #5c6bc0;
+            background-color: #5fa1f2;
         }
         QPushButton:pressed {
-            background-color: #303f9f;
+            background-color: #2e6bb2;
         }
         QPushButton:disabled {
-            background-color: #9e9e9e;
-            color: #eeeeee;
+            background-color: #b0b0b0;
+            color: #f0f0f0;
+            border: 1px solid #a0a0a0;
         }
     """
 
-def self_Style(self):
+def self_Style():
     return """
         QGroupBox {
             font-weight: bold;
@@ -82,7 +85,7 @@ def self_Style(self):
         }
     """
 
-def button_activate_style(self):
+def button_activate_style():
     return """
     QPushButton {
         background-color: #2c2c2c;
@@ -99,7 +102,7 @@ def button_activate_style(self):
     border-bottom-right-radius: 0px;
     }"""
 
-def button_style(self):
+def button_options_style():
     return """
             QPushButton {
                 background-color: #131313;
@@ -135,5 +138,21 @@ def button_style(self):
                 padding: 5px;  /* afecta el contenido interno */
                 margin-left: 5px;  /* esto sí separa del borde */
                 margin-right: 5px;
+            }
+        """
+def box_render_style():
+    return """
+            QComboBox {
+                background-color: #1e1e1e;
+                color: white;
+                border: 1px solid #555;
+                border-radius: 3px;
+                padding: 4px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #2b2b2b;
+                color: white;
+                selection-background-color: #5c6bc0;
+                border: none;
             }
         """
