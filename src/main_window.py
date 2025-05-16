@@ -37,8 +37,8 @@ class MainWindow(QtW.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("HET simulator")
-        self.setMinimumSize(1500, 800)
-        self.resize(1500, 800)
+        self.setMinimumSize(800,400)
+        self.resize(800,400)
 
         self.simulation_state = SimulationState()
         self.home_panel = HomeOptionsPanel(self)
