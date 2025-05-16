@@ -113,6 +113,8 @@ class MainWindow(QtW.QMainWindow):
             self.View_Part.switch_view("mesh")
         elif index == 1:
             self.View_Part.switch_view("field")
+        elif index == 2:
+            self.View_Part.switch_view("magnetic")
 
     def set_active_button(self, active_btn):
         for btn in self.Options.tab_buttons:

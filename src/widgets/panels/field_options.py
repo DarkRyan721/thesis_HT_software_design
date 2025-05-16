@@ -74,17 +74,19 @@ class FieldOptionsPanel(QWidget):
         if new_params != self.simulation_state.prev_params_field:
             print("🔄 ¡Parámetros cambiaron:", new_params)
             self.simulation_state.prev_params_field = new_params
-            solver = ElectricFieldSolver()
-            phi, E = solver.solve_laplace(Volt=voltaje, Volt_cath=voltaje_Cath)
+            field_instace = ElectricFieldSolver()
+            phi, E = field_instace.solve_laplace(Volt=voltaje, Volt_cath=voltaje_Cath)
 
             npy_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../data_files/Electric_Field_np.npy"))
-            solver.save_electric_field_numpy(E, filename=npy_path)
+            field_instace.save_electric_field_numpy(E, filename=npy_path)
                 # Forzar visualización del viewer
             self.worker = LoaderWorker(mode="field")
             self.worker.finished.connect(self.on_field_loaded)
             self.worker.start()
         else:
             print("⚠️ No se han realizado cambios en los parámetros del campo.")
+        self.simulation_state.print_state()
+        
 
     def on_field_loaded(self, data):
         self.current_field = data

@@ -66,7 +66,7 @@ class B_Field():
 
         #___________________________________________________________________________________________
 
-    def Magnetic_Field(S, S_solenoid, nSteps, current=4.5, chunk_size=100):
+    def Magnetic_Field(self, S, S_solenoid, current=4.5, chunk_size=100):
         muo = 4e-7 * np.pi  # permeabilidad del vacío
 
         xg = S[:, 0]
@@ -85,8 +85,8 @@ class B_Field():
         dly = Ys[1:] - Ys[:-1]
         dlz = Zs[1:] - Zs[:-1]
 
-        for start in tqdm(range(0, nSteps - 1, chunk_size), desc="Campo magnético (NumPy)", unit="chunk"):
-            end = min(start + chunk_size, nSteps - 1)
+        for start in tqdm(range(0, self.nSteps - 1, chunk_size), desc="Campo magnético (NumPy)", unit="chunk"):
+            end = min(start + chunk_size, self.nSteps - 1)
 
             dlx_chunk = dlx[start:end]
             dly_chunk = dly[start:end]
@@ -433,7 +433,7 @@ if __name__ == "__main__":
     #B_value = B_field.Total_Magnetic_Field(S=spatial_coords)
 
     #B_field.B_Field_Lines(ZX=True, Plane_Value=0.0, All_Solenoids=True, Solenoid_Center=True)
-    B_field.B_Field_Heatmap(XY=True, ZX=False, Plane_Value=0.01, Solenoid_Center=True, All_Solenoids=True)
+    #B_field.B_Field_Heatmap(XY=True, ZX=False, Plane_Value=0.01, Solenoid_Center=True, All_Solenoids=True)
 
     # 4. Guardar en el archivo el campo magnetico encontrado
 
@@ -443,4 +443,4 @@ if __name__ == "__main__":
 
     #B_field.color_map_B(S=spatial_coords, XY=True, Plane_Value=0.01, num_contorn=10, resolution=400, Solenoid_Center=True)
 
-    #B_field.Solenoid_points_plot(Solenoid_1=True, Solenoid_2=True, Solenoid_3=True, Solenoid_4=True)
+    #B_field.Solenoid_points_plot(Solenoid_1=True, Solenoid_2=True, Solenoid_3=True, Solenoid_4=True)S_evalself.
