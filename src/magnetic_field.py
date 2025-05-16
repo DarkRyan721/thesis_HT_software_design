@@ -29,7 +29,8 @@ class B_Field():
         #   Creacion de los solenoides
 
         phi = np.linspace(0, 2*np.pi, self.nSteps)
-        self.Rout = 0.8*self.Rin #[m] -> Radio de los solenoides externos
+        self.Rout = 0.5*self.Rin #[m] -> Radio de los solenoides externos
+        Rout_center = self.Rext
 
         def xParametrique_inner( phi ) : return self.Rin*np.cos(self.N*phi)
         def yParametrique_inner( phi ) : return self.Rin*np.sin(self.N*phi)
@@ -44,23 +45,23 @@ class B_Field():
         Z_inner = zParametrique_inner(phi)
         self.S_Inner = np.column_stack((X_inner,Y_inner,Z_inner))
 
-        X1 = xParametrique_outer(phi) + self.Rext + self.Rout/2
-        Y1 = yParametrique_outer(phi) + self.Rext + self.Rout/2
+        X1 = xParametrique_outer(phi) + Rout_center
+        Y1 = yParametrique_outer(phi) + Rout_center
         Z1 = zParametrique_outer(phi)
         self.S1 = np.column_stack((X1,Y1,Z1))
 
-        X2 = xParametrique_outer(phi) - self.Rext - self.Rout/2
-        Y2 = yParametrique_outer(phi) + self.Rext + self.Rout/2
+        X2 = xParametrique_outer(phi) - Rout_center
+        Y2 = yParametrique_outer(phi) + Rout_center
         Z2 = zParametrique_outer(phi)
         self.S2 = np.column_stack((X2,Y2,Z2))
 
-        X3 = xParametrique_outer(phi) - self.Rext - self.Rout/2
-        Y3 = yParametrique_outer(phi) - self.Rext - self.Rout/2
+        X3 = xParametrique_outer(phi) - Rout_center
+        Y3 = yParametrique_outer(phi) - Rout_center
         Z3 = zParametrique_outer(phi)
         self.S3 = np.column_stack((X3,Y3,Z3))
 
-        X4 = xParametrique_outer(phi) + self.Rext + self.Rout/2
-        Y4 = yParametrique_outer(phi) - self.Rext - self.Rout/2
+        X4 = xParametrique_outer(phi) + Rout_center
+        Y4 = yParametrique_outer(phi) - Rout_center
         Z4 = zParametrique_outer(phi)
         self.S4 = np.column_stack((X4,Y4,Z4))
 
@@ -185,140 +186,230 @@ class B_Field():
 
         plt.show()
 
-    def color_map_B(self, S, XY=False, ZY=False, ZX=False, Solenoid_Center = False, All_Solenoids = True, Plane_Value=0, resolution = 100, num_contorn = 30):
-        #___________________________________________________________________________________________
-        # Grafica del mapa de color segun el plano y la cantidad de solenoides
+    def B_Field_Heatmap(self, Solenoid_Center=False, All_Solenoids=False, XY=False, ZX=False, Plane_Value=0.0, resolution=100):
+        if XY:
+            # 1. Crear malla estructurada en XY
+            xi = np.linspace(-1.5 * self.Rext, 1.5 * self.Rext, resolution)
+            yi = np.linspace(-1.5 * self.Rext, 1.5 * self.Rext, resolution)
+            Xi, Yi = np.meshgrid(xi, yi)
 
-        if XY == True:
-            X = S[:, 0]
-            Y = S[:, 1]
+            # 2. Expandir a coordenadas 3D con Z constante = Plane_Value
+            S_eval = np.column_stack((Xi.ravel(), Yi.ravel(), np.full(Xi.size, Plane_Value)))
+        elif ZX:
+            # 1. Crear malla estructurada en ZX
+            xi = np.linspace(0.0, 1.5 * self.L, resolution)  # eje Z
+            yi = np.linspace(-1.5 * self.Rext, 1.5 * self.Rext, resolution)  # eje X
+            Xi, Yi = np.meshgrid(xi, yi)
 
-            xi = np.linspace(np.min(X), np.max(X), resolution)
-            yi = np.linspace(np.min(Y), np.max(Y), resolution)
-            eje_x, eje_y = np.meshgrid(xi, yi)
-
-            S_cmp = np.column_stack((eje_x.flatten(), eje_y.flatten(), self.L * np.ones_like(eje_y.flatten())))
-
-        elif ZY == True:
-            X = S[:, 2]
-            Y = S[:, 1]
-
-            xi = np.linspace(np.min(X), np.max(X), resolution)
-            yi = np.linspace(np.min(Y), np.max(Y), resolution)
-            eje_x, eje_y = np.meshgrid(xi, yi)
-
-            S_cmp = np.column_stack((Plane_Value * np.ones_like(eje_y.flatten()), eje_y.flatten(), eje_x.flatten()))
-        elif ZX==True:
-            X = S[:, 2]
-            Y = S[:, 0]
-
-            xi = np.linspace(np.min(X), np.max(X), resolution)
-            yi = np.linspace(np.min(Y), np.max(Y), resolution)
-            eje_x, eje_y = np.meshgrid(xi, yi)
-
-            S_cmp = np.column_stack((eje_y.flatten(), Plane_Value * np.ones_like(eje_y.flatten()), eje_x.flatten()))
+            # 2. Expandir a coordenadas 3D con Y constante = Plane_Value
+            S_eval = np.column_stack((Yi.ravel(), np.full(Xi.size, Plane_Value), Xi.ravel()))
         else:
-            print("No hay plano seleccionado")
-            return
-        
-        if Solenoid_Center == True:
-            B_cmp = self.Magnetic_Field(S=S_cmp, S_solenoid=self.S_Inner)
-        elif All_Solenoids == True:
-            B_cmp = self.Total_Magnetic_Field(S=S_cmp) 
-        else:
+            print("❌ Debes seleccionar un plano de plot.")
             return
 
-        Bx = B_cmp[:, 0].reshape(eje_x.shape)
-        By = B_cmp[:, 1].reshape(eje_x.shape)  
-        Bz = B_cmp[:, 2].reshape(eje_x.shape) 
+        # 3. Evaluar campo magnético en esa malla
+        if Solenoid_Center:
+            B_eval = self.Magnetic_Field(S=S_eval, S_solenoid=self.S_Inner)
+        elif All_Solenoids:
+            B_eval = self.Total_Magnetic_Field(S=S_eval)
+        else:
+            print("❌ Debes escoger el o los solenoides presentes en el gráfico.")
+            return
 
-        B_values = np.sqrt(Bx**2 + By**2 + Bz**2)
-        B_values = np.nan_to_num(B_values, nan=1e-9)
+        # 4. Separar componentes del campo
+        if XY:
+            Bx = B_eval[:, 0].reshape(Xi.shape)
+            By = B_eval[:, 1].reshape(Yi.shape)
+
+            Bmag = np.sqrt(Bx**2 + By**2)
+            R = np.sqrt(Xi**2 + Yi**2)
+            Bmag[R > self.Rext] = Bmag[Bmag > 1e-8].min()
+        elif ZX:
+            Bx = B_eval[:, 2].reshape(Xi.shape)  # Bz (horizontal)
+            By = B_eval[:, 0].reshape(Yi.shape)  # Bx (vertical)
+
+            Bmag = np.sqrt(Bx**2 + By**2)
         
-        num_levels = num_contorn  
-        contour_levels = np.linspace(np.min(B_values[B_values > 0]), np.max(B_values), num_levels)
+        vmin = Bmag[Bmag > 1e-8].min()
+        vmax = Bmag.max()
+        levels = np.logspace(np.log10(vmin), np.log10(vmax), 300)
 
+        cmap = plt.get_cmap('inferno').copy()
+        cmap.set_under('black')
+
+        # 5. Graficar solo mapa de calor
         fig, ax = plt.subplots(figsize=(10, 8))
-        fig.patch.set_facecolor('#131313')
+        heatmap = ax.contourf(
+            Xi, Yi, Bmag,
+            levels=levels,
+            cmap=cmap,
+            norm=colors.LogNorm(vmin=vmin, vmax=vmax)
+        )
 
-        im = ax.imshow(B_values, cmap='plasma', norm=colors.LogNorm(vmin=np.max([B_values.min(), 1e-6]), vmax=B_values.max()),
-                       extent=[eje_x.min(), eje_x.max(), eje_y.min(), eje_y.max()], origin='lower')
+        cbar = plt.colorbar(heatmap, ax=ax, ticks=np.linspace(vmin, vmax, 5))
+        cbar.ax.yaxis.set_major_formatter('{:.2e}'.format)  # o usa '%.2e'
+        cbar.set_label("Magnitud del Campo Magnético")
 
-        cset = ax.contour(eje_x, eje_y, B_values, levels=contour_levels, linewidths=1, colors='white', norm=colors.LogNorm())
-        ax.clabel(cset, inline=True, fmt='%1.2f', fontsize=10)
+        # 6. Etiquetas
+        if XY:
+            ax.set_xlabel("X [m]")
+            ax.set_ylabel("Y [m]")
+            ax.set_title("Mapa de Calor del Campo Magnético - Plano XY")
+            ax.set_xlim(-1.5 * self.Rext, 1.5 * self.Rext)
+            ax.set_ylim(-1.5 * self.Rext, 1.5 * self.Rext)
 
-        # Agregar barra de color con escala logarítmica
-        cbar = plt.colorbar(im, ax=ax, label="|B| (Escala Log)")
-        cbar.ax.set_facecolor('#283747') 
-        cbar.ax.yaxis.set_tick_params(color='white')  # Color de las marcas de la barra
-        plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='white')
-        cbar.set_label('|B| (Escala Log)', color='white') 
+            # 6. Dibujar geometría del canal
+            inner_circle = plt.Circle((0, 0), self.Rin, fill=True, linewidth=2, facecolor='gray')
+            outer_circle = plt.Circle((0, 0), self.Rext, fill=False, linewidth=4, edgecolor='gray')
+            ax.add_patch(inner_circle)
+            ax.add_patch(outer_circle)
+        elif ZX:
+            ax.set_xlabel("Z [m]")
+            ax.set_ylabel("X [m]")
+            ax.set_title("Mapa de Calor del Campo Magnético - Plano ZX")
+            ax.set_xlim(0.0, 1.5 * self.L)
+            ax.set_ylim(-1.5 * self.Rext, 1.5 * self.Rext)
 
-        # Etiquetas y título
-        ax.set_xlabel("Y-axis")
-        ax.set_ylabel("Z-axis")
-        ax.set_title("Magnitud del Campo Magnético (Escala Log)")
-        ax.title.set_color('white')  # Color del título
-        ax.xaxis.label.set_color('white')  # Color de la etiqueta del eje X
-        ax.yaxis.label.set_color('white')  # Color de la etiqueta del eje Y
-        ax.tick_params(axis='x', colors='white')  # Color de las marcas del eje X
-        ax.tick_params(axis='y', colors='white')  # Color de las marcas del eje Y
+            # 7. Estética
+            ax.set_xlabel("X [m]")
+            ax.set_ylabel("Y [m]")
+            ax.set_title("Líneas del Campo Magnético - Plano ZX")
+            ax.set_xlim(0.0, 1.5 * self.L)
+            ax.set_ylim(-1.5 * self.Rext, 1.5 * self.Rext)
 
-        ax.set_aspect('auto')
+            rect_sup = plt.Rectangle(
+                (0.0, self.Rext),
+                self.L,
+                0.5*self.Rext,
+                linewidth=2,
+                edgecolor='none',
+                facecolor='gray'
+            )
+            rect_inf = plt.Rectangle(
+                (0.0, -1.5*self.Rext),
+                self.L,
+                0.5*self.Rext,
+                linewidth=2,
+                edgecolor='none',
+                facecolor='gray'
+            )
+            rect_inner = plt.Rectangle(
+                (0.0, -self.Rin),
+                self.L,
+                2*self.Rin,
+                linewidth=2,
+                edgecolor='none',
+                facecolor='gray'
+            )
 
-        # Mostrar la figura
+            ax.add_patch(rect_sup)
+            ax.add_patch(rect_inf)
+            ax.add_patch(rect_inner)
+
+        plt.tight_layout()
         plt.show()
 
-    def B_Field_Lines(self, B, S, XY=False, ZY=False, ZX=False, Plane_Value=0, resolution = 100):
-        tolerance = 0.001
+    def B_Field_Lines(self, Solenoid_Center=False, All_Solenoids=False, XY=False, ZX=False, Plane_Value=0.0, resolution=100):
+        if XY:
+            # 1. Crear malla estructurada en XY
+            xi = np.linspace(-1.5 * self.Rext, 1.5 * self.Rext, resolution)
+            yi = np.linspace(-1.5 * self.Rext, 1.5 * self.Rext, resolution)
+            Xi, Yi = np.meshgrid(xi, yi)
 
-        if XY == True:
-            X = S[:, 0]  # Coordenadas X originales
-            Y = S[:, 1]  # Coordenadas Y originales
+            # 2. Expandir a coordenadas 3D con Z constante = Plane_Value
+            S_eval = np.column_stack((Xi.ravel(), Yi.ravel(), np.full(Xi.size, Plane_Value)))
+        elif ZX:
+            # 1. Crear malla estructurada en ZX
+            xi = np.linspace(0.0, 1.5 * self.L, resolution) # eje Z
+            yi = np.linspace(-1.5 * self.Rext, 1.5 * self.Rext, resolution) # eje X
+            Xi, Yi = np.meshgrid(xi, yi)
 
-            Bx = B[:, 0]  # Componente X del campo magnético
-            By = B[:, 1]  # Componente Y del campo magnético
-        elif ZY == True:
-            X = S[:, 2]  # Coordenadas X originales
-            Y = S[:, 1]  # Coordenadas Y originales
-            Bx = B[:, 2]  # Componente X del campo magnético
-            By = B[:, 1]  # Componente Y del campo magnético
-        elif ZX==True:
-            X = S[:, 2]  # Coordenadas X originales
-            Y = S[:, 0]  # Coordenadas Y originales
-            Bx = B[:, 2]  # Componente X del campo magnético
-            By = B[:, 0]  # Componente Y del campo magnético
+            # 2. Expandir a coordenadas 3D con Z constante = Plane_Value
+            S_eval = np.column_stack((Yi.ravel(), np.full(Xi.size, Plane_Value) ,Xi.ravel()))
         else:
-            print("No hay plano seleccionado")
+            print("❌ Debes seleccionar un plano de plot.")
+            return
+
+        # 3. Evaluar campo magnético en esa malla
+        if Solenoid_Center:
+            B_eval = self.Magnetic_Field(S=S_eval, S_solenoid=self.S_Inner)
+        elif All_Solenoids:
+            B_eval = self.Total_Magnetic_Field(S=S_eval)
+        else:
+            print("❌ Debes escoger el o los solenoides presentes en el grafico.")
             return
         
-        B_mag = np.sqrt(Bx**2 + By**2)
+        if XY:
+            # 4. Separar componentes del campo y reordenar a la forma de malla
+            Bx = B_eval[:, 0].reshape(Xi.shape)
+            By = B_eval[:, 1].reshape(Yi.shape)
+        elif ZX:
+            Bx = B_eval[:, 2].reshape(Xi.shape)  # Bz (horizontal)
+            By = B_eval[:, 0].reshape(Yi.shape)  # Bx (vertical)
 
-        max_arrow_length = 0.001
-        Bx_limited = np.clip(Bx, -max_arrow_length, max_arrow_length)
-        By_limited = np.clip(By, -max_arrow_length, max_arrow_length)
+        Bmag = np.sqrt(Bx**2 + By**2)
 
-        # Crear la figura y el eje
-        fig, ax = plt.subplots(figsize=(8, 8))
+        # 5. Graficar con fondo de magnitud + líneas de flujo
+        fig, ax = plt.subplots(figsize=(10, 8))
+        color_plot = ax.contourf(Xi, Yi, Bmag, levels=100, cmap='viridis')
 
-        # Graficar las flechas con un mapa de color
-        quiver = ax.quiver(X, Y, Bx_limited, By_limited, B_mag, angles='xy', scale_units='xy', scale=0.5, cmap='plasma')
+        ax.streamplot(Xi, Yi, Bx, By, color='white', linewidth=0.7, density=1, arrowsize=0.7)
 
-        # Agregar una barra de color para la magnitud
-        cbar = plt.colorbar(quiver, ax=ax, label="Magnitud del Campo Magnético")
+        cbar = plt.colorbar(color_plot, ax=ax)
+        cbar.set_label("Magnitud del Campo Magnético")
 
-        # Etiquetas y título
-        ax.set_xlabel('X [m]')
-        ax.set_ylabel('Y [m]')
-        ax.set_xlim(np.min(X), np.max(X))
-        ax.set_ylim(np.min(Y), np.max(Y))
-        ax.set_title('Líneas del Campo Magnético en el Plano XY')
+        if XY:
+            # 7. Estética
+            ax.set_xlabel("X [m]")
+            ax.set_ylabel("Y [m]")
+            ax.set_title("Líneas del Campo Magnético - Plano XY")
+            ax.set_xlim(-1.5 * self.Rext, 1.5 * self.Rext)
+            ax.set_ylim(-1.5 * self.Rext, 1.5 * self.Rext)
 
-        # Agregar los dos círculos (diámetros 0.056 y 0.1)
-        circulo1 = plt.Circle((0, 0), 0.056/2, fill=False, linewidth=2)
-        ax.add_patch(circulo1)
 
-        # Mostrar la figura
+            # 6. Dibujar geometría del canal
+            inner_circle = plt.Circle((0, 0), self.Rin, fill=True, linewidth=2, facecolor='black')
+            outer_circle = plt.Circle((0, 0), self.Rext, fill=False, linewidth=4, edgecolor='black')
+            ax.add_patch(inner_circle)
+            ax.add_patch(outer_circle)
+        elif ZX:
+            # 7. Estética
+            ax.set_xlabel("X [m]")
+            ax.set_ylabel("Y [m]")
+            ax.set_title("Líneas del Campo Magnético - Plano ZX")
+            ax.set_xlim(0.0, 1.5 * self.L)
+            ax.set_ylim(-1.5 * self.Rext, 1.5 * self.Rext)
+
+            rect_sup = plt.Rectangle(
+                (0.0, self.Rext),
+                self.L,
+                0.5*self.Rext,
+                linewidth=2,
+                edgecolor='none',
+                facecolor='gray'
+            )
+            rect_inf = plt.Rectangle(
+                (0.0, -1.5*self.Rext),
+                self.L,
+                0.5*self.Rext,
+                linewidth=2,
+                edgecolor='none',
+                facecolor='gray'
+            )
+            rect_inner = plt.Rectangle(
+                (0.0, -self.Rin),
+                self.L,
+                2*self.Rin,
+                linewidth=2,
+                edgecolor='none',
+                facecolor='gray'
+            )
+
+            ax.add_patch(rect_sup)
+            ax.add_patch(rect_inf)
+            ax.add_patch(rect_inner)
+
+        plt.tight_layout()
         plt.show()
 
     def Save_B_Field(self, B, S):
@@ -349,18 +440,22 @@ if __name__ == "__main__":
         I -> Corriente en los solenoides (opcional)
     """
 
-    B_field = B_Field()
+    B_field = B_Field(nSteps=20000)
 
     # 3. Calcular el campo magnetico total producido por los 5 solenoides
 
-    B_value = B_field.Total_Magnetic_Field(S=spatial_coords)
+    #B_value = B_field.Magnetic_Field(S=spatial_coords, S_solenoid=B_field.S_Inner)
+    #B_value = B_field.Total_Magnetic_Field(S=spatial_coords)
+
+    #B_field.B_Field_Lines(ZX=True, Plane_Value=0.0, All_Solenoids=True, Solenoid_Center=True)
+    B_field.B_Field_Heatmap(XY=True, ZX=False, Plane_Value=0.01, Solenoid_Center=True, All_Solenoids=True)
 
     # 4. Guardar en el archivo el campo magnetico encontrado
 
-    B_field.Save_B_Field(B=B_value, S=spatial_coords)
+    #B_field.Save_B_Field(B=B_value, S=spatial_coords)
 
     # 5.Diferentes opciones de plot para el usuario(Opcional)
 
-    # B_field.color_map_B(S=spatial_coords, XY=True, Plane_Value=0.01...)
-    # B_field.B_Field_Lines(B=B_value, S=spatial_coords...)
-    # B_field.Solenoid_points_plot(...)
+    #B_field.color_map_B(S=spatial_coords, XY=True, Plane_Value=0.01, num_contorn=10, resolution=400, Solenoid_Center=True)
+
+    #B_field.Solenoid_points_plot(Solenoid_1=True, Solenoid_2=True, Solenoid_3=True, Solenoid_4=True)

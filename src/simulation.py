@@ -71,7 +71,7 @@ class Simulation():
         helping_value_L = 0.01*self.L
 
         centro = (0, 0, (self.L) / 2)
-        centro_solenoid = (ancho_plano/2)-Rsol_ext
+        centro_solenoid = self.Rex
         direccion = (0, 0, 1)
 
         #_____________________________________________________________________________________________________
