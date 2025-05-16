@@ -39,7 +39,7 @@ class HallThrusterMesh:
         self.R_small = R_small
         self.H = H
         self.L = 5 * R_big
-        self.filename = "data_files/SimulationZone"
+        self.filename = "./data_files/SimulationZone"
         self.refinement_level = refinement_level.lower()  # Make sure it's lowercase
 
         # Define SizeMin and SizeMax based on refinement level

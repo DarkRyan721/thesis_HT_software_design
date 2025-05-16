@@ -205,6 +205,7 @@ class HomeOptionsPanel(QWidget):
             self.worker.start()
         else:
             print("⚠️ No se han realizado cambios en la malla.")
+        self.simulation_state.print_state()
 
     def on_mesh_loaded(self, data):
         self.current_mesh = data

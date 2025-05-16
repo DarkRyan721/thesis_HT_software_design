@@ -4,7 +4,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 
 import PySide6.QtWidgets as QtW
-from PySide6.QtWidgets import QStackedWidget    
+from PySide6.QtWidgets import QStackedWidget
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QPushButton, QSizePolicy
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtCore import QTimer
@@ -34,7 +34,7 @@ class ViewPanel(QFrame):
         self.viewers = {
             "mesh": self.main_window.home_panel.home_viewer,
             "field": self.main_window.field_panel.field_viewer,
-            # Puedes agregar más si lo necesitas
+            "magnetic": self.main_window.magnetic_panel.magnetic_viewer,
         }
 
         # Añadir viewers al stack
@@ -62,7 +62,7 @@ class ViewPanel(QFrame):
             print("⚠️ Aplicando estilo a field_viewer")
             QTimer.singleShot(0, lambda: self.main_window.field_panel.on_field_loaded())
             # Aplicar estilo si es necesario
-        
+
     def switch_view(self, name: str):
         if name in self.viewers:
             self.view_stack.setCurrentWidget(self.viewers[name])
@@ -74,3 +74,6 @@ class ViewPanel(QFrame):
 
     def update_field_viewer(self, field):
         self.update_viewer(field, viewer_name="field")
+
+    def update_magnetic_viewer(self, field):
+        self.update_viewer(field, viewer_name="magnetic")

@@ -20,6 +20,7 @@ class B_Field():
 
         self.muo = (4e-7)*np.pi #[(T*m)/A] -> Constante de permiabilidad del vacio
 
+
         #___________________________________________________________________________________________
 
         self.Solenoid_Create()

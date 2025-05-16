@@ -4,6 +4,8 @@ import numpy as np
 import pyvista as pv
 from pyvistaqt import QtInteractor
 
+from magnetic_field_noGPU import B_Field
+
 # Añadir ../../ (es decir, src/) al path para importar desde la raíz del proyecto
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
@@ -28,13 +30,9 @@ class MagneticOptionsPanel(QWidget):
         layout = QVBoxLayout(self)
 
         # Parámetros magnéticos
-        self.input_nSteps_container, self.input_nSteps = _input_with_unit("1500", "[N]")
-        self.input_L_container, self.input_L = _input_with_unit("0.021", "[m]")
-        self.input_Rin_container, self.input_Rin = _input_with_unit("0.027", "[m]")
-        self.input_Rout_container, self.input_Rout = _input_with_unit(str(0.8*0.027), "[m]")
-        self.input_Rext_container, self.input_Rext = _input_with_unit("0.05", "[m]")
-        self.input_N_container, self.input_N = _input_with_unit("150", "[N]")
-        self.input_i_container, self.input_i = _input_with_unit("15", "[A]")
+        self.input_nSteps_container, self.input_nSteps = _input_with_unit(str(self.simulation_state.nSteps), "[N]")
+        self.input_N_container, self.input_N = _input_with_unit(str(self.simulation_state.N), "[N]")
+        self.input_i_container, self.input_i = _input_with_unit(str(self.simulation_state.I), "[A]")
 
         # Visualizador 3D
         self.magnetic_viewer = self._create_viewer()
@@ -43,10 +41,6 @@ class MagneticOptionsPanel(QWidget):
         mag_box.setSizePolicy(QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Fixed)
         form = QFormLayout()
         form.addRow("nSteps:", self.input_nSteps_container)
-        form.addRow("Longitud L:", self.input_L_container)
-        form.addRow("Radio interior Rin:", self.input_Rin_container)
-        form.addRow("Radio exterior Rout:", self.input_Rout_container)
-        form.addRow("Radio de extensión Rext:", self.input_Rext_container)
         form.addRow("Número de vueltas N:", self.input_N_container)
         form.addRow("Corriente i:", self.input_i_container)
         mag_box.setLayout(form)
@@ -67,45 +61,51 @@ class MagneticOptionsPanel(QWidget):
     def on_update_clicked_Magnetic_field(self):
         # Leer valores de los inputs
         nSteps = int(self.input_nSteps.text())
-        L = float(self.input_L.text())
-        Rin = float(self.input_Rin.text())
-        Rout = float(self.input_Rout.text())
-        Rext = float(self.input_Rext.text())
         N = int(self.input_N.text())
-        muo = float(self.input_muo.text())
-        i = float(self.input_i.text())
+        I = float(self.input_i.text())
 
         # Actualizar el estado de la simulación
         self.simulation_state.nSteps = nSteps
-        self.simulation_state.L = L
-        self.simulation_state.Rin = Rin
-        self.simulation_state.Rout = Rout
-        self.simulation_state.Rext = Rext
         self.simulation_state.N = N
-        self.simulation_state.muo = muo
-        self.simulation_state.i = i
+        self.simulation_state.I = I
 
-        new_params = (nSteps, L, Rin, Rout, Rext, N, muo, i)
-        if new_params != getattr(self.simulation_state, 'prev_params_magnetic', None):
+        new_params = (nSteps, N, I)
+        if new_params != self.simulation_state.prev_params_magnetic:
             print("🔄 Parámetros magnéticos cambiaron:", new_params)
             self.simulation_state.prev_params_magnetic = new_params
-            # TODO: Llamar al solver y guardar resultado
-            # solver = MagneticFieldSolver()
-            # field_data = solver.compute(nSteps, L, Rin, Rout, Rext, N, muo, i)
-            # npy_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../data_files/Magnetic_Field.npy"))
-            # solver.save(field_data, filename=npy_path)
-            # Cargar y visualizar con loader
-            # self.worker = MagneticLoaderWorker(mode="magnetic")
-            # self.worker.finished.connect(self.on_magnetic_loaded)
-            # self.worker.start()
+            magnetic_instance = B_Field(nSteps=self.simulation_state.nSteps, N = self.simulation_state.N, I=self.simulation_state.I)
+
+            E_File = np.load("data_files/Electric_Field_np.npy")
+            spatial_coords = E_File[:, :3]
+
+            # ⚠️ Aquí eliges si quieres solo el centro o todos
+            B_value = magnetic_instance.Total_Magnetic_Field(S=spatial_coords)
+
+
+            points = spatial_coords
+            vectors = B_value
+            magnitudes = np.linalg.norm(vectors, axis=1)
+
+            # Crea el objeto PyVista
+            B_field_pv = pv.PolyData(points)
+            B_field_pv["vectors"] = vectors
+            B_field_pv["magnitude"] = magnitudes
+
+            self.magnetic_viewer.clear()
+            self.magnetic_viewer.add_mesh(B_field_pv, scalars="magnitude", cmap="viridis")
+            self.magnetic_viewer.add_arrows(B_field_pv.points, vectors, mag=0.01, label="B-field")  # Opcional
+            self.magnetic_viewer.reset_camera()
+            magnetic_instance.Save_B_Field(B=B_value, S=spatial_coords)
+
         else:
             print("⚠️ No se han realizado cambios en los parámetros magnéticos.")
+        self.simulation_state.print_state()
+
 
     def on_magnetic_loaded(self, data):
         self.current_magnetic = data
-        # Cambiar vista si está activo el panel de magnético (asumiendo índice 3)
-        if self.main_window.parameters_view.currentIndex() == 3:
-            self.main_window.View_Part.switch_view("magnetic")
+        self.main_window.View_Part.current_data = data  # asegúrate de sincronizar ViewPanel
+        self.main_window.View_Part.switch_view("magnetic")
         self.visualize_magnetic(data)
 
     def visualize_magnetic(self, data):
