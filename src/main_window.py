@@ -23,12 +23,13 @@ import gmsh
 # 🧩 Módulos propios
 from E_field_solver import ElectricFieldSolver
 from Gen_Mallado import HallThrusterMesh
+from widgets.panels.magnetic_options import MagneticOptionsPanel
 from widgets.panels.field_options import FieldOptionsPanel
 from styles.stylesheets import *
 from widgets.parameter_views import ParameterPanel
 from widgets.options_panel import OptionsPanel
 from widgets.view_panel import ViewPanel
-from utils.mesh_loader import MeshLoaderWorker
+from utils.mesh_loader import LoaderWorker
 from models.simulation_state import SimulationState
 from widgets.panels.home_options import HomeOptionsPanel
 
@@ -42,12 +43,12 @@ class MainWindow(QtW.QMainWindow):
         self.simulation_state = SimulationState()
         self.home_panel = HomeOptionsPanel(self)
         self.field_panel = FieldOptionsPanel(self)
+        self.magnetic_panel = MagneticOptionsPanel(self)
         self._setup_ui()
         self.frame.addWidget(self.Options, stretch=0.3)
         self.frame.addWidget(self.Parameters, stretch=1)
         self.frame.addWidget(self.View_Part.view_stack, stretch=2)
         self.setStyleSheet(self_Style())
-
 
     def _setup_ui(self):
         #_____________________________________________________________________________________________
@@ -65,6 +66,7 @@ class MainWindow(QtW.QMainWindow):
         self.Options = OptionsPanel(self, self.Parameters.parameters_view)
         self.View_Part = ViewPanel(self)
         self.parameters_view = self.Parameters.parameters_view
+        self.set_active_button(self.Options.tab_buttons[0])
 
         self.frame.addWidget(self.Parameters, stretch=1)
         self.frame.addWidget(self.Options, stretch=0.3)
@@ -109,13 +111,8 @@ class MainWindow(QtW.QMainWindow):
         self.set_active_button(btn)
         if index == 0:
             self.View_Part.switch_view("mesh")
-        elif index == 2:
+        elif index == 1:
             self.View_Part.switch_view("field")
-            try:
-                print("Cargando campo electrico")
-                self.field_panel.add_field_vectors_from_npy("./data_files/Electric_Field_np.npy")
-            except Exception as e:
-                print(f"⚠️ No se pudo cargar el campo eléctrico: {e}")
 
     def set_active_button(self, active_btn):
         for btn in self.Options.tab_buttons:

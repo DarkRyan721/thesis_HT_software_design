@@ -3,13 +3,33 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import matplotlib.colors as colors
+<<<<<<< HEAD
+from numpy import sin, cos, pi
+
+=======
 from scipy.interpolate import griddata
+>>>>>>> f0c1ecc311a500d8381ea1c7e228eeefcc7346ba
 
 class B_Field():
     def __init__(self, nSteps=5000, L=0.02, Rin=0.028, Rext=0.05, N=200, I=4.5):
         #___________________________________________________________________________________________
         #   Parametros de los solenoides
 
+<<<<<<< HEAD
+# Numero de partes del solenoide
+nSteps = 1500
+
+# Longitud, Radio y # vueltas del solenoide
+L = 0.021 #[m]
+Rin = 0.027 #[m]
+Rout = 0.8*Rin
+Rext = 0.05
+N = 150  #[1]
+
+# Constante de permiabilidad del vacio y corriente del solenoides
+muo = (4e-7)*np.pi #[(T*m)/A]
+i = 15 #[A]
+=======
         self.nSteps = nSteps #[1] -> Resolucion de un solenoide
         self.L = L #[m] -> Longitud del propulsor/solenoide
         self.Rin = Rin #[m] -> Radio interno
@@ -20,6 +40,7 @@ class B_Field():
         self.muo = (4e-7)*np.pi #[(T*m)/A] -> Constante de permiabilidad del vacio
 
         #___________________________________________________________________________________________
+>>>>>>> f0c1ecc311a500d8381ea1c7e228eeefcc7346ba
 
         self.Solenoid_Create()
 
@@ -77,9 +98,15 @@ class B_Field():
         Ys = S_solenoid[:, 1]
         Zs = S_solenoid[:, 2]
 
+<<<<<<< HEAD
+    # 4) Devolver a CPU
+    # return Bx.get(), By.get(), Bz.get(), B_mag.get()
+    return Bx, By, Bz, B_mag
+=======
         Bx = np.zeros_like(xg, dtype=np.float64)
         By = np.zeros_like(yg, dtype=np.float64)
         Bz = np.zeros_like(zg, dtype=np.float64)
+>>>>>>> f0c1ecc311a500d8381ea1c7e228eeefcc7346ba
 
         dlx = Xs[1:] - Xs[:-1]
         dly = Ys[1:] - Ys[:-1]
@@ -441,6 +468,262 @@ if __name__ == "__main__":
 
     # 5.Diferentes opciones de plot para el usuario(Opcional)
 
+<<<<<<< HEAD
+    # Calcular la magnitud del campo en la malla
+    _,_,_,B_inner = Magnetic_Field(0.001 * np.ones_like(YVec_focus), YVec_focus, ZVec_focus, X_inner, Y_inner, Z_inner)
+    _,_,_,B1 = Magnetic_Field(0.001 * np.ones_like(YVec_focus), YVec_focus, ZVec_focus, X1, Y1, Z1)
+    _,_,_,B2 = Magnetic_Field(0.001 * np.ones_like(YVec_focus), YVec_focus, ZVec_focus, X2, Y2, Z2)
+    _,_,_,B3 = Magnetic_Field(0.001 * np.ones_like(YVec_focus), YVec_focus, ZVec_focus, X3, Y3, Z3)
+    _,_,_,B4 = Magnetic_Field(0.001 * np.ones_like(YVec_focus), YVec_focus, ZVec_focus, X4, Y4, Z4)
+
+    B_values = np.abs(B_inner - (B2+B1+B3+B4))
+
+    num_levels = 10
+    contour_levels = np.linspace(np.min(B_values[B_values > 0]), np.max(B_values), num_levels)
+
+    # Crear la visualización con escala logarítmica para mejorar el contraste
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    # Usar escala logarítmica para resaltar detalles en valores pequeños
+    im = ax.imshow(B_values, cmap='plasma', norm=colors.LogNorm(vmin=np.max([B_values.min(), 1e-6]), vmax=B_values.max()),
+                extent=[yVal_focus.min(), yVal_focus.max(), zVal_focus.min(), zVal_focus.max()], origin='lower')
+
+    # Ajustar niveles de contorno
+    num_levels = 30
+    contour_levels = np.logspace(np.log10(np.max([B_values.min(), 1e-6])), np.log10(B_values.max()), num_levels)
+
+    # Agregar líneas de contorno con escala logarítmica
+    cset = ax.contour(YVec_focus, ZVec_focus, B_values, levels=contour_levels, linewidths=1, colors='white', norm=colors.LogNorm())
+    ax.clabel(cset, inline=True, fmt='%1.1f', fontsize=10)
+
+    # Agregar barra de color con escala logarítmica
+    cbar = plt.colorbar(im, ax=ax, label="|B| (Escala Log)")
+
+    # Etiquetas y título
+    ax.set_xlabel("Y-axis")
+    ax.set_ylabel("Z-axis")
+    ax.set_title("Magnitud del Campo Magnético (Escala Log)")
+
+    ax.set_aspect('auto')
+
+    # Mostrar la figura
+    plt.show()
+
+#_____________________________________________________________________________________________________________
+#                       6] Funcion para observar las lineas de campo magnetico
+
+from mpl_toolkits import mplot3d
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from tqdm import tqdm
+import matplotlib.colors as colors
+from numpy import sin, cos, pi
+
+
+def Field_view():
+    x_grid = np.linspace(-0.08, 0.08, 40)
+    y_grid = np.linspace(-0.08, 0.08, 40)
+    X, Y = np.meshgrid(x_grid, y_grid)
+    Z = np.zeros_like(X)
+
+    # Calcular el campo
+    Bx_inner, By_inner, _, _ = Magnetic_Field(X, Y, Z, X_inner, Y_inner, Z_inner)
+    Bx1, By1, _, _ = Magnetic_Field(X, Y, Z, X1, Y1, Z1)
+    Bx2, By2, _, _ = Magnetic_Field(X, Y, Z, X2, Y2, Z2)
+    Bx3, By3, _, _ = Magnetic_Field(X, Y, Z, X3, Y3, Z3)
+    Bx4, By4, _, _ = Magnetic_Field(X, Y, Z, X4, Y4, Z4)
+
+    Bx = Bx_inner - (Bx1 + Bx2 + Bx3 + Bx4)
+    By = By_inner - (By1 + By2 + By3 + By4)
+
+    max_arrow = 0.003
+    Bx_l = np.clip(Bx, -max_arrow, max_arrow)
+    By_l = np.clip(By, -max_arrow, max_arrow)
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.quiver(X, Y, Bx_l, By_l,
+              angles='xy', scale_units='xy', scale=1, color='b')
+
+    # Añadir círculos que representan la proyección de los cilindros
+    circ1 = patches.Circle((0, 0), Rin,
+                           fill=False,
+                           edgecolor='gray',
+                           linestyle='--',
+                           alpha=0.5,
+                           linewidth=2,
+                           label=f'Rin = {Rin} m')
+    circ2 = patches.Circle((0, 0), Rout,
+                           fill=False,
+                           edgecolor='black',
+                           linestyle=':',
+                           alpha=0.5,
+                           linewidth=2,
+                           label=f'Rout = {Rout:.4f} m')
+    ax.add_patch(circ1)
+    ax.add_patch(circ2)
+
+    # Ajustes finales
+    ax.set_xlabel('X [m]')
+    ax.set_ylabel('Y [m]')
+    ax.set_title('Líneas del Campo Magnético en el Plano XY\ncon cilindros Rin y Rout')
+    ax.set_aspect('equal', 'box')
+    ax.legend(loc='upper right')
+    plt.show()
+
+
+import numpy as np
+import pyvista as pv
+
+
+def solenoid_pyvista_plot():
+    phi = np.linspace(0, 2 * np.pi, nSteps)
+
+    def inner_pts():
+        return np.column_stack((Rin * np.cos(N*phi),
+                                Rin * np.sin(N*phi),
+                                L   * phi/(2*np.pi)))
+    def outer_pts(offset_x, offset_y):
+        return np.column_stack(( (0.8*Rin) * np.cos(N*phi) + offset_x,
+                                 (0.8*Rin) * np.sin(N*phi) + offset_y,
+                                 L   * phi/(2*np.pi)))
+    def thin_pts():
+        return np.column_stack((Rext * np.cos(N*phi),
+                                Rext * np.sin(N*phi),
+                                L    * phi/(2*np.pi)))
+
+    p = pv.Plotter(window_size=(900, 600))
+
+    # Dibujamos las espiras como antes
+    bundles = [
+        (inner_pts(),   {'color': 'red',    'radius': 0.0005}),
+        (thin_pts(),    {'color': 'orange', 'radius': 0.0003}),
+        (outer_pts( Rext+Rout/2,  Rext+Rout/2), {'color': 'blue',   'radius': 0.0005}),
+        (outer_pts(-Rext-Rout/2,  Rext+Rout/2), {'color': 'green',  'radius': 0.0005}),
+        (outer_pts(-Rext-Rout/2, -Rext-Rout/2), {'color': 'purple', 'radius': 0.0005}),
+        (outer_pts( Rext+Rout/2, -Rext-Rout/2), {'color': 'cyan',   'radius': 0.0005}),
+    ]
+    for pts, opts in bundles:
+        nPts  = pts.shape[0]
+        cells = np.hstack([[nPts], np.arange(nPts)])
+        line  = pv.PolyData(pts, lines=cells)
+        tube  = line.tube(radius=opts['radius'], n_sides=16)
+        p.add_mesh(tube, color=opts['color'], smooth_shading=True)
+
+    # 1) Cilindro interior: superficie semitransparente
+    cyl_in = pv.Cylinder(center=(0,0,L/2), direction=(0,0,1),
+                         radius=Rin, height=L)
+    p.add_mesh(cyl_in,
+               color='gray',
+               opacity=0.2,
+               smooth_shading=False,
+               style='surface')
+
+    # 2) Cilindro exterior: solo armazón (wireframe) para destacar contorno
+    cyl_out = pv.Cylinder(center=(0,0,L/2), direction=(0,0,1),
+                          radius=Rout, height=L)
+    p.add_mesh(cyl_out,
+               color='black',
+               opacity=0.3,
+               smooth_shading=False,
+               style='wireframe',
+               line_width=2)
+
+    # Ajustes de escena
+    p.add_axes(line_width=2)
+    p.enable_eye_dome_lighting()
+    p.set_background("white")
+    p.camera_position = 'iso'
+
+    p.show()
+
+def save_field(filename_prefix, Xg, Yg, Zg, Bx, By, Bz, Bmag, format='npz'):
+    """
+    Guarda los arrays del campo magnético en disco.
+
+    Parámetros:
+    - filename_prefix: ruta+nombre base (sin extensión).
+    - Xg, Yg, Zg: mallas de coordenadas (shape: [nx,ny,nz]).
+    - Bx, By, Bz: componentes del campo.
+    - Bmag: magnitud del campo.
+    - format: 'npy' o 'npz'.
+    
+    Diferencias:
+    - .npy almacena **un solo** array (usando np.save).
+    - .npz es un contenedor ZIP con **varios** arrays (usando np.savez[ _compressed]).
+    """
+    print(f"Guardando campo magnético en {filename_prefix}...")
+    if format == 'npz':
+        # empaqueta todos los arrays en un sólo .npz
+        np.savez_compressed(
+            filename_prefix + '.npz',
+            X=Xg, Y=Yg, Z=Zg,
+            Bx=Bx, By=By, Bz=Bz, Bmag=Bmag
+        )
+        print(f"Guardado en {filename_prefix}.npz")
+    elif format == 'npy':
+        # guarda cada array por separado
+        np.save(filename_prefix + '_X.npy', Xg)
+        np.save(filename_prefix + '_Y.npy', Yg)
+        np.save(filename_prefix + '_Z.npy', Zg)
+        np.save(filename_prefix + '_Bx.npy', Bx)
+        np.save(filename_prefix + '_By.npy', By)
+        np.save(filename_prefix + '_Bz.npy', Bz)
+        np.save(filename_prefix + '_Bmag.npy', Bmag)
+        print(f"Guardado en {filename_prefix}_*.npy")
+    else:
+        raise ValueError("format debe ser 'npy' o 'npz'")
+
+def plot_field_pyvista(Xg, Yg, Zg, Bx, By, Bz, Bmag,
+                       arrow_factor=0.5, arrow_spacing=4):
+    import pyvista as pv, numpy as np
+
+    grid = pv.StructuredGrid(Xg, Yg, Zg)
+    vectors = np.stack([Bx.ravel(), By.ravel(), Bz.ravel()], axis=1)
+    grid.point_data['Bvec'] = vectors
+    grid.point_data['Bmag'] = Bmag.ravel()
+
+    # 1) Cortamos el slice en z = L/2
+    slice_plane = grid.slice(normal='z', origin=(0,0,L/2))
+
+    p = pv.Plotter()
+    # 2) Dibujamos el slice coloreado por Bmag
+    p.add_mesh(slice_plane, scalars='Bmag', cmap='viridis', show_scalar_bar=True)
+
+    # 3) Glyphs sobre el slice
+    glyphs = slice_plane.glyph(orient='Bvec', scale='Bmag', factor=arrow_factor,
+                               tolerance=0.01, geom=pv.Arrow())
+    p.add_mesh(glyphs, color='black')
+
+    p.add_axes()
+    p.show()
+
+
+# # o guardar múltiples .npy
+# # 
+# # 3D: malla 30×30×15
+# x = np.linspace(-0.1, 0.1, 30)
+# y = np.linspace(-0.1, 0.1, 30)
+# z = np.linspace( 0.0, 0.05, 15)
+# Xg, Yg, Zg = np.meshgrid(x, y, z, indexing='ij')
+
+# Bx, By, Bz, Bmag = Magnetic_Field(
+#     Xg, Yg, Zg,
+#     X_inner, Y_inner, Z_inner,
+#     chunk_size=200  # por ejemplo, trozos de 200
+# )
+# print("Campo 3D calculado:", Bx.shape)  # (30, 30, 15)
+# Uso:
+
+# #wire_plot()
+# #Solenoid_points_plot()
+# #color_map_B()
+Field_view()
+# color_map_B()
+# Solenoid_points_plot()
+# wire_plot()
+=======
     #B_field.color_map_B(S=spatial_coords, XY=True, Plane_Value=0.01, num_contorn=10, resolution=400, Solenoid_Center=True)
 
     #B_field.Solenoid_points_plot(Solenoid_1=True, Solenoid_2=True, Solenoid_3=True, Solenoid_4=True)
+>>>>>>> f0c1ecc311a500d8381ea1c7e228eeefcc7346ba

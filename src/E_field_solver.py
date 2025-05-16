@@ -27,7 +27,7 @@ class ElectricFieldSolver:
     def __init__(self, mesh_file="SimulationZone.xdmf", mesh_folder="data_files"):
         """
         Initializes the solver by loading the mesh and physical tags.
-        
+
         Parameters:
         - mesh_file (str): Path to the mesh XDMF file.
         - mesh_folder (str): Directory where mesh files are located.
@@ -35,26 +35,29 @@ class ElectricFieldSolver:
         self.mesh_folder = mesh_folder
         self.mesh_file = mesh_file
         self._load_mesh_and_tags()
-    
+
     def _load_mesh_and_tags(self):
         """
         Internal method to load the mesh and associated facet and cell tags
         needed for applying boundary conditions and material properties.
         """
-        os.chdir(self.mesh_folder)
+        self.base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.mesh_path = os.path.join(self.base_dir, self.mesh_folder, self.mesh_file)
+        if not os.path.exists(self.mesh_path):
+            raise FileNotFoundError(f"❌ Archivo de malla no encontrado: {self.mesh_path}")
 
         # Load domain (volume mesh)
-        with io.XDMFFile(MPI.COMM_WORLD, self.mesh_file, "r") as xdmf:
+        with io.XDMFFile(MPI.COMM_WORLD, self.mesh_path, "r") as xdmf:
             self.domain = xdmf.read_mesh(name="SPT100_Simulation_Zone")
-        
+
         # Ensure face-to-volume connectivity is established
         self.domain.topology.create_connectivity(self.domain.topology.dim - 1, self.domain.topology.dim)
 
         # Load facet (boundary) and cell (domain) tags
-        with io.XDMFFile(MPI.COMM_WORLD, self.mesh_file, "r") as xdmf:
+        with io.XDMFFile(MPI.COMM_WORLD, self.mesh_path, "r") as xdmf:
             self.facet_tags = xdmf.read_meshtags(self.domain, name="SPT100_Simulation_Zone_facets")
             self.cell_tags = xdmf.read_meshtags(self.domain, name="SPT100_Simulation_Zone_cells")
-        
+
         # Print basic info
         print(f"Mesh loaded: dimension {self.domain.topology.dim}, nodes {self.domain.geometry.x.shape[0]}")
         print(f"Facet tags loaded: {set(self.facet_tags.values)}")
@@ -68,7 +71,7 @@ class ElectricFieldSolver:
     def _apply_boundary_conditions(self, V, volt_tag, ground_tag, cathode_tag, Volt, Volt_cath):
         """
         Applies Dirichlet boundary conditions (fixed potentials) on tagged surfaces.
-        
+
         Parameters:
         - V: Function space
         - volt_tag, ground_tag, cathode_tag: Physical tags identifying boundary surfaces
@@ -99,10 +102,10 @@ class ElectricFieldSolver:
     def _compute_electric_field(self, phi_h):
         """
         Given the solved potential phi_h, compute the electric field E = -grad(phi).
-        
+
         Parameters:
         - phi_h: Solved potential field
-        
+
         Returns:
         - E_field: Computed electric field (vector field)
         """
@@ -117,11 +120,11 @@ class ElectricFieldSolver:
             xdmf.write_function(E_field)
 
         return E_field
-    
-    def load_density_from_npy(self, path="density_n0.npy"):
+
+    def load_density_from_npy(self, path="/density_n0.npy"):
         e = -1.602e-19
 
-        rho_array = np.load(path)
+        rho_array = np.load(self.base_dir + "/data_files" + path)
         V = fem.functionspace(self.domain, ("CG", 1))
         rho_func = fem.Function(V)
         rho_func.x.array[:] = rho_array*(e / 8.854187817e-12)  # Convertir a rho/epsilon_0
@@ -131,12 +134,12 @@ class ElectricFieldSolver:
         """
         Solves the Laplace equation:
             -div(grad(phi)) = 0
-        
+
         Parameters:
         - volt_tag, ground_tag, cathode_tag: Tags for boundaries
         - Volt: Anode voltage
         - Volt_cath: Cathode voltage
-        
+
         Returns:
         - phi_h: Solved potential field
         - E_field: Computed electric field
@@ -166,13 +169,13 @@ class ElectricFieldSolver:
         """
         Solves the Poisson equation:
             -div(grad(phi)) = rho/epsilon_0
-        
+
         Parameters:
         - source_term: Right-hand side source term (charge density)
         - volt_tag, ground_tag, cathode_tag: Boundary tags
         - Volt: Anode voltage
         - Volt_cath: Cathode voltage
-        
+
         Returns:
         - phi_h: Solved potential field
         - E_field: Computed electric field
@@ -187,7 +190,7 @@ class ElectricFieldSolver:
             f_expr = fem.Constant(self.domain, PETSc.ScalarType(0))
         else:
             f_expr = source_term
-        
+
         L = f_expr * v * dx
 
         bcs = self._apply_boundary_conditions(V, volt_tag, ground_tag, cathode_tag, Volt, Volt_cath)
@@ -208,7 +211,7 @@ class ElectricFieldSolver:
         """
         Saves the electric field to a .npy file.
         The file contains coordinates and electric field vector components.
-        
+
         Format: [x, y, z, Ex, Ey, Ez]
         """
         X = self.domain.geometry.x
@@ -220,7 +223,7 @@ class ElectricFieldSolver:
     def plot_E_Field(self, filename="Electric_Field_np.npy"):
         """
         Visualizes the electric field from a .npy file using PyVista.
-        
+
         Parameters:
         - filename: Path to the saved .npy electric field file.
         """
@@ -253,20 +256,18 @@ if __name__ == "__main__":
     print("\nMesh loaded successfully!")
 
     # Solve Laplace equation with specific anode voltage
-    # Volt_input = 300
-    # print("\nSolving Laplace equation...")
-    # phi_laplace, E_laplace = solver.solve_laplace(Volt=Volt_input)
-    # solver.save_electric_field_numpy(E_laplace, filename="Electric_Field_np.npy")
-    # print("Laplace solution completed and saved.")
+    Volt_input = 300
+    print("\nSolving Laplace equation...")
+    phi_laplace, E_laplace = solver.solve_laplace(Volt=Volt_input)
+    solver.save_electric_field_numpy(E_laplace, filename="Electric_Field_np.npy")
+    print("Laplace solution completed and saved.")
 
-
-    # Solve Poisson
-    print("\nSolving Poisson equation...")
-    source_term= solver.load_density_from_npy()
-    phi_poisson, E_poisson = solver.solve_poisson(source_term=source_term)
-    solver.save_electric_field_numpy(E_poisson, filename="Electric_Field_np.npy")
-    print("Poisson solution completed and saved.")
-
+    # # Solve Poisson
+    # print("\nSolving Poisson equation...")
+    # source_term= solver.load_density_from_npy()
+    # phi_poisson, E_poisson = solver.solve_poisson(source_term=source_term)
+    # solver.save_electric_field_numpy(E_poisson, filename="Electric_Field_np.npy")
+    # print("Poisson solution completed and saved.")
 
     # Plot the resulting electric field
     print("\nPlotting the electric field from Laplace solution...")

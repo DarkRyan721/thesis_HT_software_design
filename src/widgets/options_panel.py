@@ -13,6 +13,7 @@ class OptionsPanel(QFrame):
         super().__init__()
         self.main_window = main_window
         self.parameters_view = parameters_view
+        self.parameters_view.setCurrentIndex(0)
 
         self.setStyleSheet("background-color: #131313; border-radius: 0px;")
         self.layout = QVBoxLayout(self)
@@ -25,7 +26,6 @@ class OptionsPanel(QFrame):
     def create_buttons(self):
         btn_info = [
             ("Home", "🏠"),
-            ("Mesh", "▩"),
             ("LaPlace", "E"),
             ("Magnet", "B"),
             ("Density", "σ"),
@@ -46,9 +46,8 @@ class OptionsPanel(QFrame):
 
     def create_option_panels(self):
         self.parameters_view.addWidget(self.main_window.home_panel)        # index 0
-        self.parameters_view.addWidget(self.main_window.Mesh_Options())        # index 1
         self.parameters_view.addWidget(self.main_window.field_panel)     # index 2
-        self.parameters_view.addWidget(self.main_window.MField_Options())      # index 3
+        self.parameters_view.addWidget(self.main_window.magnetic_panel)      # index 3
         self.parameters_view.addWidget(self.main_window.Density_Options())     # index 4
         self.parameters_view.addWidget(self.main_window.Simulation_Options())  # index 5
 
