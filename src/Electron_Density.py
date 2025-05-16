@@ -305,15 +305,15 @@ if __name__ == "__main__":
         A -> debera depender de el rendimiento de la simulacion. No existe formula
     """
 
-    # 1. Cargar la malla
-    # with io.XDMFFile(MPI.COMM_WORLD, "SimulationZone.xdmf", "r") as xdmf:
-    #     domain = xdmf.read_mesh(name="SPT100_Simulation_Zone")
+    #1. Cargar la malla
+    with io.XDMFFile(MPI.COMM_WORLD, "SimulationZone.xdmf", "r") as xdmf:
+        domain = xdmf.read_mesh(name="SPT100_Simulation_Zone")
 
-    # # 2. Generar la densidad de electrones inicial
-    # n0 = generate_density(domain)
+    # 2. Generar la densidad de electrones inicial
+    n0 = generate_density(domain)
 
-    # # 3. Guardar la densidad de electrones
-    # save_density(n0)
+    # 3. Guardar la densidad de electrones
+    save_density(n0)
 
     # 3. plot opcional de la densidad de electrones
     plot_density(bool_3D=True, bool_XY_Plane=False, bool_XZ_plane=False) #Tiene 3 tipos de plots(3D, Plano XY, Plano ZX)

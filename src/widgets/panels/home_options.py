@@ -26,7 +26,7 @@ from styles.stylesheets import *
 from widgets.parameter_views import ParameterPanel
 from widgets.options_panel import OptionsPanel
 from widgets.view_panel import ViewPanel
-from utils.mesh_loader import MeshLoaderWorker
+from utils.mesh_loader import LoaderWorker
 from utils.ui_helpers import _input_with_unit
 
 class HomeOptionsPanel(QWidget):
@@ -80,6 +80,7 @@ class HomeOptionsPanel(QWidget):
 
         layout.addWidget(style_box)
         layout.addStretch()
+        self._load_initial_mesh_if_exists()
 
     def _create_viewer(self):
         viewer = QtInteractor()
@@ -87,14 +88,12 @@ class HomeOptionsPanel(QWidget):
         viewer.setStyleSheet("background-color: #131313; border-radius: 5px;")
         viewer.add_axes(interactive=False)
         viewer.setSizePolicy(QtW.QSizePolicy.Expanding, QtW.QSizePolicy.Expanding)
+        viewer.view_zx()
         return viewer
 
     def _apply_visual_style_home(self):
-        if self.main_window.View_Part.current_view is None:
-            print("⚠️ No hay malla cargada.")
-            return
 
-        self.current_mesh = self.main_window.View_Part.current_view
+        self.current_mesh = self.main_window.View_Part.current_data
         if self.current_mesh is None:
             print("⚠️ No hay malla cargada.")
             return
@@ -201,23 +200,26 @@ class HomeOptionsPanel(QWidget):
             self.simulation_state.prev_params_mesh = new_params
             self.mesh_instance = HallThrusterMesh(R_big=R_big, R_small=R_small, H=H)
             self.mesh_instance.generate()
-            self.worker = MeshLoaderWorker()
-            self.worker.finished.connect(self.main_window.View_Part.update_mesh_viewer)
+            self.worker = LoaderWorker(mode="mesh")
+            self.worker.finished.connect(self.on_mesh_loaded)
             self.worker.start()
         else:
             print("⚠️ No se han realizado cambios en la malla.")
 
-    def on_mesh_loaded(self, mesh):
-        self.main_window.View_Part.current_mesh = mesh
-        self.main_window.View_Part.view_stack.setCurrentWidget(self.home_viewer)
-        self._apply_visual_style_home(mesh)
+    def on_mesh_loaded(self, data):
+        self.current_mesh = data
+        self.main_window.View_Part.current_data = data  # asegúrate de sincronizar ViewPanel
+        self.main_window.View_Part.switch_view("mesh")
+        self.visualize_mesh(data)
 
-    def _show_in_separate_window(self):
+    def visualize_mesh(self, mesh):
+        self.current_mesh = mesh
+        self._apply_visual_style_home()
 
-        mesh = self.current_mesh
-        mesh.compute_normals(inplace=True)
-
-        p = pv.Plotter()
-        p.add_mesh(mesh, smooth_shading=True, color="steelblue", lighting=True)
-        p.add_axes()
-        p.show()
+    def _load_initial_mesh_if_exists(self):
+        msh_path = "./data_files/SimulationZone.msh"
+        if os.path.exists(msh_path):
+            print("📦 Cargando malla inicial desde archivo existente...")
+            self.worker = LoaderWorker(mode="mesh")
+            self.worker.finished.connect(self.on_mesh_loaded)
+            self.worker.start()

@@ -6,6 +6,8 @@ import pyvista as pv
 
 from pyvistaqt import QtInteractor
 
+from utils.field_loader import FieldLoaderWorker
+
 # Añadir ../../ (es decir, src/) al path para importar desde la raíz del proyecto
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
@@ -25,7 +27,7 @@ from styles.stylesheets import *
 from widgets.parameter_views import ParameterPanel
 from widgets.options_panel import OptionsPanel
 from widgets.view_panel import ViewPanel
-from utils.mesh_loader import MeshLoaderWorker
+from utils.mesh_loader import LoaderWorker
 from utils.ui_helpers import _input_with_unit
 
 class FieldOptionsPanel(QWidget):
@@ -59,7 +61,7 @@ class FieldOptionsPanel(QWidget):
 
         # 🎨 Panel de estilo visual
         layout.addStretch()
-
+        self._load_initial_field_if_exists()
 
     def on_update_clicked_Electric_field(self):
         voltaje = float(self.input_Volt.text())
@@ -68,34 +70,31 @@ class FieldOptionsPanel(QWidget):
         self.simulation_state.voltage = voltaje
         self.simulation_state.voltage_cathode = voltaje_Cath
 
-        print(f"voltaje = {voltaje}, voltaje_cath = {voltaje_Cath}")
-        print(self.simulation_state.prev_params_field)
         new_params = (voltaje, voltaje_Cath)
         if new_params != self.simulation_state.prev_params_field:
             print("🔄 ¡Parámetros cambiaron:", new_params)
             self.simulation_state.prev_params_field = new_params
-            solver_electric_field = ElectricFieldSolver()
+            solver = ElectricFieldSolver()
+            phi, E = solver.solve_laplace(Volt=voltaje, Volt_cath=voltaje_Cath)
+
+            npy_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../data_files/Electric_Field_np.npy"))
+            solver.save_electric_field_numpy(E, filename=npy_path)
+                # Forzar visualización del viewer
+            self.worker = LoaderWorker(mode="field")
+            self.worker.finished.connect(self.on_field_loaded)
+            self.worker.start()
         else:
-            print("⚠️ No se han realizado cambios en la malla.")
+            print("⚠️ No se han realizado cambios en los parámetros del campo.")
 
-    def add_field_vectors_from_npy(self, npy_path, scale=0.01):
-        data = np.load(npy_path)
-        if data.shape[1] < 6:
-            raise ValueError("El archivo .npy debe contener [x, y, z, Ex, Ey, Ez]")
+    def on_field_loaded(self, data):
+        self.current_field = data
+        if self.main_window.parameters_view.currentIndex() == 1:
+            self.main_window.View_Part.switch_view("field")
+        self.visualize_field(data)
 
-        points = data[:, :3]
-        vectors = data[:, 3:]
-        magnitudes = np.linalg.norm(vectors, axis=1)
-        log_magnitudes = np.log10(magnitudes + 1e-3)
-
-        mesh = pv.PolyData(points)
-        mesh["vectors"] = vectors
-        mesh["magnitude"] = log_magnitudes
-
+    def visualize_field(self, data):
         self.field_viewer.clear()
-        self.field_viewer.add_mesh(mesh.glyph(orient="vectors", scale=False, factor=scale),
-                            scalars="magnitude", cmap="plasma")
-        self.field_viewer.add_axes(interactive=False)
+        self.field_viewer.add_mesh(data, scalars="magnitude", cmap="plasma")
         self.field_viewer.reset_camera()
 
     def _create_viewer(self):
@@ -104,4 +103,13 @@ class FieldOptionsPanel(QWidget):
         viewer.setStyleSheet("background-color: #131313; border-radius: 5px;")
         viewer.add_axes(interactive=False)
         viewer.setSizePolicy(QtW.QSizePolicy.Expanding, QtW.QSizePolicy.Expanding)
+        viewer.view_zx()
         return viewer
+
+    def _load_initial_field_if_exists(self):
+        field_path = "./data_files/Electric_Field_np.npy"
+        if os.path.exists(field_path):
+            print("⚡ Cargando campo eléctrico inicial...")
+            self.worker = LoaderWorker(mode="field")
+            self.worker.finished.connect(self.on_field_loaded)
+            self.worker.start()
