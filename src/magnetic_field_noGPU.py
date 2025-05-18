@@ -430,14 +430,14 @@ if __name__ == "__main__":
     # 3. Calcular el campo magnetico total producido por los 5 solenoides
 
     #B_value = B_field.Magnetic_Field(S=spatial_coords, S_solenoid=B_field.S_Inner)
-    #B_value = B_field.Total_Magnetic_Field(S=spatial_coords)
+    B_value = B_field.Total_Magnetic_Field(S=spatial_coords)
 
     #B_field.B_Field_Lines(ZX=True, Plane_Value=0.0, All_Solenoids=True, Solenoid_Center=True)
     #B_field.B_Field_Heatmap(XY=True, ZX=False, Plane_Value=0.01, Solenoid_Center=True, All_Solenoids=True)
 
     # 4. Guardar en el archivo el campo magnetico encontrado
 
-    #B_field.Save_B_Field(B=B_value, S=spatial_coords)
+    B_field.Save_B_Field(B=B_value, S=spatial_coords)
 
     # 5.Diferentes opciones de plot para el usuario(Opcional)
 
