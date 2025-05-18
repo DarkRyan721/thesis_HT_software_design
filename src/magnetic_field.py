@@ -448,8 +448,8 @@ if __name__ == "__main__":
     #B_value = B_field.Magnetic_Field(S=spatial_coords, S_solenoid=B_field.S_Inner)
     #B_value = B_field.Total_Magnetic_Field(S=spatial_coords)
 
-    #B_field.B_Field_Lines(ZX=True, Plane_Value=0.0, All_Solenoids=True, Solenoid_Center=True)
-    B_field.B_Field_Heatmap(XY=True, ZX=False, Plane_Value=0.01, Solenoid_Center=True, All_Solenoids=True)
+    B_field.B_Field_Lines(ZX=True, Plane_Value=0.0, All_Solenoids=True, Solenoid_Center=False)
+    #B_field.B_Field_Heatmap(XY=False, ZX=True, Plane_Value=0.0, Solenoid_Center=False, All_Solenoids=True)
 
     # 4. Guardar en el archivo el campo magnetico encontrado
 

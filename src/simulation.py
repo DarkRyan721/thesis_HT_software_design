@@ -206,7 +206,7 @@ class Simulation():
 
         #_____________________________________________________________________________________________________
 
-    def Animation(self):
+    def Animation(self, neutral_visible = False):
         #_____________________________________________________________________________________________________
         #       Mostrar la ventana y asignacion de key events
         
@@ -224,6 +224,9 @@ class Simulation():
 
         #_____________________________________________________________________________________________________
         #       Ciclo de trabajo para el renderizado
+
+        if neutral_visible == False:
+            self.neutral_actor.SetVisibility(False) 
 
         for frame in range(self.num_frames):
             if self.window_closed:
@@ -257,22 +260,23 @@ class Simulation():
                 #self.ion_actor.SetVisibility(False)
 
             # Update neutrals
-            mask_neutrals = frame_data[:, 3] == 0
-            neutrals_points = frame_data[mask_neutrals, :3]
-            num_neutrals = min(len(neutrals_points), max_particles)
-            
+            if neutral_visible == True:
+                mask_neutrals = frame_data[:, 3] == 0
+                neutrals_points = frame_data[mask_neutrals, :3]
+                num_neutrals = min(len(neutrals_points), max_particles)
+                
 
-            if self.neutral_actor is not None:
-                buffer_neutrals[:] = np.nan
-                if num_neutrals > 0:
-                    buffer_neutrals[:num_neutrals] = neutrals_points[:num_neutrals]
-                    self.neutral_actor.SetVisibility(True)
-                    self.neutrals.points = buffer_neutrals
-                    self.neutral_actor.mapper.dataset.points = self.neutrals.points
-                else:
-                    self.neutral_actor.SetVisibility(False)
-
-                self.neutral_actor.SetVisibility(False) 
+                if self.neutral_actor is not None:
+                    buffer_neutrals[:] = np.nan
+                    if num_neutrals > 0:
+                        buffer_neutrals[:num_neutrals] = neutrals_points[:num_neutrals]
+                        self.neutral_actor.SetVisibility(True)
+                        self.neutrals.points = buffer_neutrals
+                        self.neutral_actor.mapper.dataset.points = self.neutrals.points
+                    else:
+                        self.neutral_actor.SetVisibility(False)
+            else:
+                num_neutrals = self.num_particles-num_ions
 
             self.plotter.update()
             time.sleep(1 / 60)
