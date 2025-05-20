@@ -14,7 +14,7 @@ import pyvista as pv
 from pyvistaqt import QtInteractor
 from PySide6 import QtCore
 from styles.stylesheets import *
-from utils.mesh_loader import LoaderWorker
+from utils.loader_thread import LoaderWorker
 
 
 class ViewPanel(QFrame):

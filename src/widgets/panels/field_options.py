@@ -6,7 +6,6 @@ import pyvista as pv
 
 from pyvistaqt import QtInteractor
 
-from utils.field_loader import FieldLoaderWorker
 
 # Añadir ../../ (es decir, src/) al path para importar desde la raíz del proyecto
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -27,7 +26,7 @@ from styles.stylesheets import *
 from widgets.parameter_views import ParameterPanel
 from widgets.options_panel import OptionsPanel
 from widgets.view_panel import ViewPanel
-from utils.mesh_loader import LoaderWorker
+from utils.loader_thread import LoaderWorker
 from utils.ui_helpers import _input_with_unit
 
 class FieldOptionsPanel(QWidget):
@@ -86,7 +85,7 @@ class FieldOptionsPanel(QWidget):
         else:
             print("⚠️ No se han realizado cambios en los parámetros del campo.")
         self.simulation_state.print_state()
-        
+
 
     def on_field_loaded(self, data):
         self.current_field = data

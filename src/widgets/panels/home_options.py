@@ -26,7 +26,7 @@ from styles.stylesheets import *
 from widgets.parameter_views import ParameterPanel
 from widgets.options_panel import OptionsPanel
 from widgets.view_panel import ViewPanel
-from utils.mesh_loader import LoaderWorker
+from utils.loader_thread import LoaderWorker
 from utils.ui_helpers import _input_with_unit
 
 class HomeOptionsPanel(QWidget):

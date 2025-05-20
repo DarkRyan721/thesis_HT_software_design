@@ -5,6 +5,7 @@ import pyvista as pv
 from pyvistaqt import QtInteractor
 
 from magnetic_field_noGPU import B_Field
+from utils.loader_thread import LoaderWorker
 
 # Añadir ../../ (es decir, src/) al path para importar desde la raíz del proyecto
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -73,29 +74,10 @@ class MagneticOptionsPanel(QWidget):
         if new_params != self.simulation_state.prev_params_magnetic:
             print("🔄 Parámetros magnéticos cambiaron:", new_params)
             self.simulation_state.prev_params_magnetic = new_params
-            magnetic_instance = B_Field(nSteps=self.simulation_state.nSteps, N = self.simulation_state.N, I=self.simulation_state.I)
 
-            E_File = np.load("data_files/Electric_Field_np.npy")
-            spatial_coords = E_File[:, :3]
-
-            # ⚠️ Aquí eliges si quieres solo el centro o todos
-            B_value = magnetic_instance.Total_Magnetic_Field(S=spatial_coords)
-
-
-            points = spatial_coords
-            vectors = B_value
-            magnitudes = np.linalg.norm(vectors, axis=1)
-
-            # Crea el objeto PyVista
-            B_field_pv = pv.PolyData(points)
-            B_field_pv["vectors"] = vectors
-            B_field_pv["magnitude"] = magnitudes
-
-            self.magnetic_viewer.clear()
-            self.magnetic_viewer.add_mesh(B_field_pv, scalars="magnitude", cmap="viridis")
-            self.magnetic_viewer.add_arrows(B_field_pv.points, vectors, mag=0.01, label="B-field")  # Opcional
-            self.magnetic_viewer.reset_camera()
-            magnetic_instance.Save_B_Field(B=B_value, S=spatial_coords)
+            self.worker = LoaderWorker(mode="magnetic", params=new_params)
+            self.worker.finished.connect(self.on_magnetic_loaded)
+            self.worker.start()
 
         else:
             print("⚠️ No se han realizado cambios en los parámetros magnéticos.")

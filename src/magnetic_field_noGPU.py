@@ -425,7 +425,7 @@ if __name__ == "__main__":
         I -> Corriente en los solenoides (opcional)
     """
 
-    B_field = B_Field(nSteps=20000)
+    B_field = B_Field(nSteps=1500)
 
     # 3. Calcular el campo magnetico total producido por los 5 solenoides
 

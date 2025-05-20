@@ -29,7 +29,7 @@ from styles.stylesheets import *
 from widgets.parameter_views import ParameterPanel
 from widgets.options_panel import OptionsPanel
 from widgets.view_panel import ViewPanel
-from utils.mesh_loader import LoaderWorker
+from utils.loader_thread import LoaderWorker
 from models.simulation_state import SimulationState
 from widgets.panels.home_options import HomeOptionsPanel
 
@@ -37,8 +37,8 @@ class MainWindow(QtW.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("HET simulator")
-        self.setMinimumSize(800,400)
-        self.resize(800,400)
+        self.setMinimumSize(1500,800)
+        self.resize(1500,800)
 
         self.simulation_state = SimulationState()
         self.home_panel = HomeOptionsPanel(self)
