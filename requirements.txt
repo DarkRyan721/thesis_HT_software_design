@@ -1,0 +1,26 @@
+# Core scientific/engineering stack
+numpy
+scipy
+matplotlib
+tqdm
+meshio
+mpi4py
+petsc4py
+
+# Simulation frameworks
+fenics_ufl
+pyvista
+pyvistaqt
+
+# GUI & Visualization
+PySide6
+
+# Mesh generation
+gmsh
+
+# GPU acceleration (if used)
+cupy
+
+# Others
+docutils
+

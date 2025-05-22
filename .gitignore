@@ -1,1 +1,16 @@
-particle_simulation.npy
+# Archivos y carpetas que nunca deben estar versionados
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+data_files/
+qt-env/
+.env/
+env/
+env-f/
+.vscode/
+vscode.deb
+
+# Opcional: backups temporales de editores
+*~
+*.swp
