@@ -16,8 +16,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 import PySide6.QtWidgets as QtW
-from PySide6.QtCore import QTimer
-
+from PySide6.QtCore import QThread, Signal, QObject, QTimer
 # ──────────────────────────────────────────────
 # 🧩 Módulos propios
 from Gen_Mallado import HallThrusterMesh
@@ -28,6 +27,8 @@ from widgets.options_panel import OptionsPanel
 from widgets.view_panel import ViewPanel
 from utils.loader_thread import LoaderWorker
 from utils.ui_helpers import _input_with_unit
+
+from paths import data_file_path
 
 class HomeOptionsPanel(QWidget):
     def __init__(self, main_window):
@@ -88,7 +89,7 @@ class HomeOptionsPanel(QWidget):
         viewer.setStyleSheet("background-color: #131313; border-radius: 5px;")
         viewer.add_axes(interactive=False)
         viewer.setSizePolicy(QtW.QSizePolicy.Expanding, QtW.QSizePolicy.Expanding)
-        viewer.view_zx()
+        viewer.view_yx()
         return viewer
 
     def _apply_visual_style_home(self):
@@ -105,7 +106,6 @@ class HomeOptionsPanel(QWidget):
         self.home_viewer.renderer.RemoveAllLights()  # Elimina luces anteriores
         self.home_viewer.add_light(pv.Light(light_type='headlight'))  # Añadir luz frontal
         mode = self.combo_render_mode.currentText()
-        print(f"Render mode: {mode}")
         opacity = self.opacity_slider.value() / 100.0
 
         common_kwargs = dict(
@@ -193,23 +193,28 @@ class HomeOptionsPanel(QWidget):
         self.simulation_state.R_small = R_small
 
         print(f"H = {H}, R = {R_big}, R = {R_small}")
-        print(self.simulation_state.prev_params_mesh)
         new_params = (H, R_big, R_small)
+
         if new_params != self.simulation_state.prev_params_mesh:
             print("🔄 ¡Parámetros cambiaron:", new_params)
             self.simulation_state.prev_params_mesh = new_params
+
             self.mesh_instance = HallThrusterMesh(R_big=R_big, R_small=R_small, H=H)
             self.mesh_instance.generate()
-            self.worker = LoaderWorker(mode="mesh")
-            self.worker.finished.connect(self.on_mesh_loaded)
-            self.worker.start()
+
+            self.loader_worker_mesh = LoaderWorker(mode="mesh")
+            self.main_window.launch_worker(self.loader_worker_mesh, self.on_mesh_loaded)
         else:
             print("⚠️ No se han realizado cambios en la malla.")
+
         self.simulation_state.print_state()
 
     def on_mesh_loaded(self, data):
+        if data is None or not isinstance(data, pv.PolyData):
+            print("❌ Error: datos de malla no válidos")
+            return
         self.current_mesh = data
-        self.main_window.View_Part.current_data = data  # asegúrate de sincronizar ViewPanel
+        self.main_window.View_Part.current_data = data
         self.main_window.View_Part.switch_view("mesh")
         self.visualize_mesh(data)
 
@@ -218,9 +223,7 @@ class HomeOptionsPanel(QWidget):
         self._apply_visual_style_home()
 
     def _load_initial_mesh_if_exists(self):
-        msh_path = "./data_files/SimulationZone.msh"
-        if os.path.exists(msh_path):
-            print("📦 Cargando malla inicial desde archivo existente...")
-            self.worker = LoaderWorker(mode="mesh")
-            self.worker.finished.connect(self.on_mesh_loaded)
-            self.worker.start()
+        path = data_file_path("SimulationZone.msh")
+        if os.path.exists(path):
+            worker = LoaderWorker(mode="mesh")
+            self.main_window.launch_worker(worker, self.on_mesh_loaded)

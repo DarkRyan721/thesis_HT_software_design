@@ -12,6 +12,8 @@ from dolfinx.io import XDMFFile
 import dolfinx.io.gmshio as gmshio
 import pyvista as pv
 import os
+from paths import data_file
+
 
 class HallThrusterMesh:
     """
@@ -39,7 +41,8 @@ class HallThrusterMesh:
         self.R_small = R_small
         self.H = H
         self.L = 5 * R_big
-        self.filename = "./data_files/SimulationZone"
+        self.filename = data_file("SimulationZone")
+
         self.refinement_level = refinement_level.lower()  # Make sure it's lowercase
 
         # Define SizeMin and SizeMax based on refinement level
@@ -364,4 +367,4 @@ if __name__ == "__main__":
     refinement = "medium"
     mesh_gen = HallThrusterMesh(R_big=outer_radius, R_small=inner_radius, H=height, refinement_level=refinement)
     mesh_gen.generate()
-    HallThrusterMesh.visualize_mesh_views("data_files/SimulationZone.msh")
+    HallThrusterMesh.visualize_mesh_views(data_file("SimulationZone.msh"))

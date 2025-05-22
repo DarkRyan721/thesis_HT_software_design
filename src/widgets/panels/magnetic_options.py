@@ -13,6 +13,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QFormLayout, QPushButton
 )
+from PySide6.QtCore import QThread, Signal, QObject, QTimer
+
 from PySide6.QtCore import Qt
 import PySide6.QtWidgets as QtW
 
@@ -21,6 +23,8 @@ from styles.stylesheets import button_parameters_style
 # TODO: Importar el solver y el loader apropiados para el campo magnético
 # from E_field_solver import MagneticFieldSolver
 # from utils.magnetic_loader import MagneticLoaderWorker
+from paths import data_file
+
 
 class MagneticOptionsPanel(QWidget):
     def __init__(self, main_window):
@@ -29,10 +33,11 @@ class MagneticOptionsPanel(QWidget):
         self.simulation_state = self.main_window.simulation_state
         self.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(self)
+        self.thread = QThread()
 
         # Parámetros magnéticos
-        self.input_nSteps_container, self.input_nSteps = _input_with_unit(str(self.simulation_state.nSteps), "[N]")
-        self.input_N_container, self.input_N = _input_with_unit(str(self.simulation_state.N), "[N]")
+        self.input_nSteps_container, self.input_nSteps = _input_with_unit(str(self.simulation_state.nSteps), "[N_turns]")
+        self.input_N_turns_container, self.input_N = _input_with_unit(str(self.simulation_state.N_turns), "[N_turns]")
         self.input_i_container, self.input_i = _input_with_unit(str(self.simulation_state.I), "[A]")
 
         # Visualizador 3D
@@ -42,7 +47,7 @@ class MagneticOptionsPanel(QWidget):
         mag_box.setSizePolicy(QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Fixed)
         form = QFormLayout()
         form.addRow("nSteps:", self.input_nSteps_container)
-        form.addRow("Número de vueltas N:", self.input_N_container)
+        form.addRow("Número de vueltas N_turns:", self.input_N_turns_container)
         form.addRow("Corriente i:", self.input_i_container)
         mag_box.setLayout(form)
         layout.addWidget(mag_box)
@@ -60,29 +65,26 @@ class MagneticOptionsPanel(QWidget):
         self._load_initial_magnetic_if_exists()
 
     def on_update_clicked_Magnetic_field(self):
-        # Leer valores de los inputs
         nSteps = int(self.input_nSteps.text())
-        N = int(self.input_N.text())
+        N_turns = int(self.input_N.text())
         I = float(self.input_i.text())
 
-        # Actualizar el estado de la simulación
         self.simulation_state.nSteps = nSteps
-        self.simulation_state.N = N
+        self.simulation_state.N_turns = N_turns
         self.simulation_state.I = I
 
-        new_params = (nSteps, N, I)
+        new_params = (nSteps, N_turns, I)
+
         if new_params != self.simulation_state.prev_params_magnetic:
             print("🔄 Parámetros magnéticos cambiaron:", new_params)
             self.simulation_state.prev_params_magnetic = new_params
 
-            self.worker = LoaderWorker(mode="magnetic", params=new_params)
-            self.worker.finished.connect(self.on_magnetic_loaded)
-            self.worker.start()
-
+            worker = LoaderWorker(mode="magnetic", params=new_params)
+            self.main_window.launch_worker(worker, self.on_magnetic_loaded)
         else:
             print("⚠️ No se han realizado cambios en los parámetros magnéticos.")
-        self.simulation_state.print_state()
 
+        self.simulation_state.print_state()
 
     def on_magnetic_loaded(self, data):
         self.current_magnetic = data
@@ -105,9 +107,17 @@ class MagneticOptionsPanel(QWidget):
         return viewer
 
     def _load_initial_magnetic_if_exists(self):
-        path = os.path.join(os.path.dirname(__file__), "../../data_files/Magnetic_Field.npy")
+        path = data_file("magnetic_field_Bmag.npy")
+        params = (
+            self.simulation_state.nSteps,
+            self.simulation_state.N_turns,
+            self.simulation_state.I
+        )
+
         if os.path.exists(path):
-            print("🔗 Cargando campo magnético inicial...")
-            # self.worker = MagneticLoaderWorker(mode="magnetic")
-            # self.worker.finished.connect(self.on_magnetic_loaded)
-            # self.worker.start()
+            worker = LoaderWorker(
+                mode="magnetic",
+                params=params,
+                regenerate=False
+            )
+            self.main_window.launch_worker(worker, self.on_magnetic_loaded)

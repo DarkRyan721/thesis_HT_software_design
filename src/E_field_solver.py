@@ -14,6 +14,8 @@ from dolfinx.fem.petsc import LinearProblem
 from petsc4py import PETSc
 import pyvista as pv
 from ufl import grad, inner, dx, SpatialCoordinate
+from paths import data_file
+
 
 class ElectricFieldSolver:
     """
@@ -24,7 +26,7 @@ class ElectricFieldSolver:
     - Saves results and optionally visualizes them
     """
 
-    def __init__(self, mesh_file="SimulationZone.xdmf", mesh_folder="data_files"):
+    def __init__(self, mesh_file="SimulationZone.xdmf"):
         """
         Initializes the solver by loading the mesh and physical tags.
 
@@ -32,8 +34,8 @@ class ElectricFieldSolver:
         - mesh_file (str): Path to the mesh XDMF file.
         - mesh_folder (str): Directory where mesh files are located.
         """
-        self.mesh_folder = mesh_folder
         self.mesh_file = mesh_file
+        self.mesh_path = data_file(mesh_file)
         self._load_mesh_and_tags()
 
     def _load_mesh_and_tags(self):
@@ -41,8 +43,6 @@ class ElectricFieldSolver:
         Internal method to load the mesh and associated facet and cell tags
         needed for applying boundary conditions and material properties.
         """
-        self.base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.mesh_path = os.path.join(self.base_dir, self.mesh_folder, self.mesh_file)
         if not os.path.exists(self.mesh_path):
             raise FileNotFoundError(f"❌ Archivo de malla no encontrado: {self.mesh_path}")
 
@@ -59,8 +59,8 @@ class ElectricFieldSolver:
             self.cell_tags = xdmf.read_meshtags(self.domain, name="SPT100_Simulation_Zone_cells")
 
         # Print basic info
-        print(f"Mesh loaded: dimension {self.domain.topology.dim}, nodes {self.domain.geometry.x.shape[0]}")
-        print(f"Facet tags loaded: {set(self.facet_tags.values)}")
+        # print(f"Mesh loaded: dimension {self.domain.topology.dim}, nodes {self.domain.geometry.x.shape[0]}")
+        # print(f"Facet tags loaded: {set(self.facet_tags.values)}")
 
     def _setup_function_space(self):
         """
@@ -121,10 +121,10 @@ class ElectricFieldSolver:
 
         return E_field
 
-    def load_density_from_npy(self, path="/density_n0.npy"):
+    def load_density_from_npy(self, path="density_n0.npy"):
         e = -1.602e-19
 
-        rho_array = np.load(self.base_dir + "/data_files" + path)
+        rho_array = np.load(data_file(path))
         V = fem.functionspace(self.domain, ("CG", 1))
         rho_func = fem.Function(V)
         rho_func.x.array[:] = rho_array*(e / 8.854187817e-12)  # Convertir a rho/epsilon_0
@@ -217,8 +217,9 @@ class ElectricFieldSolver:
         X = self.domain.geometry.x
         E_values = E_field.x.array.reshape(-1, self.domain.geometry.dim)
         E_np = np.hstack((X, E_values))
-        np.save(filename, E_np)
-        print(f"Electric field saved to {filename}")
+        np.save(data_file(filename), E_np)
+        print(f"Electric field saved to {data_file(filename)}")
+        return
 
     def plot_E_Field(self, filename="Electric_Field_np.npy"):
         """
@@ -227,7 +228,7 @@ class ElectricFieldSolver:
         Parameters:
         - filename: Path to the saved .npy electric field file.
         """
-        E_np = np.load(filename)
+        E_np = np.load(data_file(filename))
         points = E_np[:, :3]
         vectors = E_np[:, 3:]
 
@@ -249,27 +250,38 @@ class ElectricFieldSolver:
 
 
 if __name__ == "__main__":
-    # Example usage
+    import time
 
+    t_total_start = time.perf_counter()
     solver = ElectricFieldSolver()
+    print("\n✅ Mesh loaded successfully!")
 
-    print("\nMesh loaded successfully!")
-
-    # Solve Laplace equation with specific anode voltage
+    # Solve Laplace equation
     Volt_input = 300
-    print("\nSolving Laplace equation...")
+    print("\n⚡ Solving Laplace equation...")
+    t_laplace_start = time.perf_counter()
     phi_laplace, E_laplace = solver.solve_laplace(Volt=Volt_input)
     solver.save_electric_field_numpy(E_laplace, filename="Electric_Field_np.npy")
-    print("Laplace solution completed and saved.")
+    t_laplace_end = time.perf_counter()
+    print(f"✅ Laplace solution completed in {t_laplace_end - t_laplace_start:.2f} s.")
 
-    # # Solve Poisson
-    # print("\nSolving Poisson equation...")
-    # source_term= solver.load_density_from_npy()
-    # phi_poisson, E_poisson = solver.solve_poisson(source_term=source_term)
-    # solver.save_electric_field_numpy(E_poisson, filename="Electric_Field_np.npy")
-    # print("Poisson solution completed and saved.")
+    # Solve Poisson equation
+    print("\n🧪 Solving Poisson equation...")
+    t_poisson_start = time.perf_counter()
+    source_term = solver.load_density_from_npy()
+    phi_poisson, E_poisson = solver.solve_poisson(source_term=source_term)
+    solver.save_electric_field_numpy(E_poisson, filename="Electric_Field_np.npy")
+    t_poisson_end = time.perf_counter()
+    print(f"✅ Poisson solution completed in {t_poisson_end - t_poisson_start:.2f} s.")
 
-    # Plot the resulting electric field
-    print("\nPlotting the electric field from Laplace solution...")
+    # Plotting
+    print("\n🎨 Plotting the electric field from Laplace solution...")
+    t_plot_start = time.perf_counter()
     solver.plot_E_Field(filename="Electric_Field_np.npy")
-    print("\nTest Completed Successfully!")
+    t_plot_end = time.perf_counter()
+    print(f"✅ Plot completed in {t_plot_end - t_plot_start:.2f} s.")
+
+    t_total_end = time.perf_counter()
+    print(f"\n🧾 Total execution time: {t_total_end - t_total_start:.2f} s.")
+    print("🏁 Test Completed Successfully!")
+

@@ -48,6 +48,6 @@ class OptionsPanel(QFrame):
         self.parameters_view.addWidget(self.main_window.home_panel)        # index 0
         self.parameters_view.addWidget(self.main_window.field_panel)     # index 2
         self.parameters_view.addWidget(self.main_window.magnetic_panel)      # index 3
-        self.parameters_view.addWidget(self.main_window.Density_Options())     # index 4
-        self.parameters_view.addWidget(self.main_window.Simulation_Options())  # index 5
+        self.parameters_view.addWidget(self.main_window.density_panel)     # index 4
+        self.parameters_view.addWidget(self.main_window.simulation_panel)  # index 5
 

@@ -118,13 +118,13 @@ class B_Field():
         Bz *= factor
 
         return np.column_stack((Bx, By, Bz))
-    
+
         #___________________________________________________________________________________________
-    
+
     def Total_Magnetic_Field(self, S, chunk_size=100):
         #___________________________________________________________________________________________
         #   Calculo total del campo magnetico para los puntos [S]
-        
+
         B_inner = self.Magnetic_Field(S=S, S_solenoid=self.S_Inner, chunk_size=chunk_size)
         B1 = self.Magnetic_Field(S=S, S_solenoid=self.S1, chunk_size=chunk_size)
         B2 = self.Magnetic_Field(S=S, S_solenoid=self.S2, chunk_size=chunk_size)
@@ -214,7 +214,7 @@ class B_Field():
             By = B_eval[:, 0].reshape(Yi.shape)  # Bx (vertical)
 
             Bmag = np.sqrt(Bx**2 + By**2)
-        
+
         vmin = Bmag[Bmag > 1e-8].min()
         vmax = Bmag.max()
         levels = np.logspace(np.log10(vmin), np.log10(vmax), 300)
@@ -323,7 +323,7 @@ class B_Field():
         else:
             print("❌ Debes escoger el o los solenoides presentes en el grafico.")
             return
-        
+
         if XY:
             # 4. Separar componentes del campo y reordenar a la forma de malla
             Bx = B_eval[:, 0].reshape(Xi.shape)
@@ -399,7 +399,7 @@ class B_Field():
 
     def Save_B_Field(self, B, S):
         MagField_array = np.column_stack((S,B))
-        
+
         np.save("data_files/Magnetic_Field_np.npy", MagField_array)
         print("Archivo guardado")
 

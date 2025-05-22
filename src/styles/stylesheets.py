@@ -156,3 +156,35 @@ def box_render_style():
                 border: none;
             }
         """
+def checkbox_parameters_style():
+    return """
+    QCheckBox {
+        spacing: 6px;
+        color: white;
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    QCheckBox::indicator {
+        width: 16px;
+        height: 16px;
+        border: 1px solid #3a70b2;
+        border-radius: 3px;
+        background-color: #1e1e1e;
+    }
+
+    QCheckBox::indicator:checked {
+        image: url(:/qt-project.org/styles/commonstyle/images/checkbox_checked.png);
+        background-color: #4a90e2;
+        border: 1px solid #4a90e2;
+    }
+
+    QCheckBox::indicator:hover {
+        border: 1px solid #5fa1f2;
+    }
+
+    QCheckBox::indicator:disabled {
+        background-color: #3a3a3a;
+        border: 1px solid #555;
+    }
+    """
