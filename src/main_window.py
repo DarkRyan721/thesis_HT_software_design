@@ -20,8 +20,8 @@ import gmsh
 
 # ──────────────────────────────────────────────
 # 🧩 Módulos propios
-from E_field_solver import ElectricFieldSolver
-from Gen_Mallado import HallThrusterMesh
+from electric_field_solver import ElectricFieldSolver
+from mesh_generator import HallThrusterMesh
 from widgets.panels.simulation_options import SimulationOptionsPanel
 from widgets.panels.density_options import DensityOptionsPanel
 from widgets.panels.magnetic_options import MagneticOptionsPanel

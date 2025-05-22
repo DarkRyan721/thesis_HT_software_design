@@ -5,11 +5,11 @@ import numpy as np
 import pyvista as pv
 import meshio
 
-from E_field_solver import ElectricFieldSolver
-from magnetic_field_noGPU import B_Field
-from simulation import Simulation  # importa tu clase
+from electric_field_solver import ElectricFieldSolver
+from magnetic_field_solver_cpu import B_Field
+from simulation_engine_viewer import Simulation  # importa tu clase
 from PySide6.QtCore import Slot
-from paths import data_file
+from project_paths import data_file
 
 class LoaderWorker(QObject):
     finished = Signal(object)

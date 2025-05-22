@@ -2,7 +2,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 from tqdm import tqdm
 from thermostat import aplicar_termostato
-from MCC import MCC_Numpy
+from monte_carlo_collisions import MCC_Numpy
 
 class PIC():
     def __init__(self, Rin, Rex, N, L, dt, q_m, alpha, sigma_ion):

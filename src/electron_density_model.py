@@ -7,7 +7,7 @@ import os
 from mpi4py import MPI
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from paths import data_file
+from project_paths import data_file
 
 
 class ElectronDensityModel:

@@ -5,7 +5,7 @@ import os
 import PySide6
 import signal
 import sys
-from paths import *
+from project_paths import *
 def run_app():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")

@@ -14,7 +14,7 @@ from dolfinx.fem.petsc import LinearProblem
 from petsc4py import PETSc
 import pyvista as pv
 from ufl import grad, inner, dx, SpatialCoordinate
-from paths import data_file
+from project_paths import data_file
 
 
 class ElectricFieldSolver:

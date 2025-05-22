@@ -12,7 +12,7 @@ from dolfinx.io import XDMFFile
 import dolfinx.io.gmshio as gmshio
 import pyvista as pv
 import os
-from paths import data_file
+from project_paths import data_file
 
 
 class HallThrusterMesh:

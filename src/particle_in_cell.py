@@ -4,7 +4,7 @@ import cupy as cp
 from tqdm import tqdm
 from thermostat import aplicar_termostato
 from scipy.spatial import cKDTree
-from MCC import MCC
+from monte_carlo_collisions import MCC
 
 class PIC():
     def __init__(self, Rin, Rex, N, L, dt, q_m, alpha, sigma_ion):

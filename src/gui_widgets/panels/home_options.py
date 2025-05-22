@@ -19,7 +19,7 @@ import PySide6.QtWidgets as QtW
 from PySide6.QtCore import QThread, Signal, QObject, QTimer
 # ──────────────────────────────────────────────
 # 🧩 Módulos propios
-from Gen_Mallado import HallThrusterMesh
+from mesh_generator import HallThrusterMesh
 
 from styles.stylesheets import *
 from widgets.parameter_views import ParameterPanel
@@ -28,7 +28,7 @@ from widgets.view_panel import ViewPanel
 from utils.loader_thread import LoaderWorker
 from utils.ui_helpers import _input_with_unit
 
-from paths import data_file_path
+from project_paths import data_file_path
 
 class HomeOptionsPanel(QWidget):
     def __init__(self, main_window):

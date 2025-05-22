@@ -15,7 +15,7 @@ try:
         params = json.load(f)
     print(f"[DEBUG] Parámetros recibidos: {params}")
 
-    from E_field_solver import ElectricFieldSolver
+    from electric_field_solver import ElectricFieldSolver
 
     solver = ElectricFieldSolver()
     if params.get("validate_density", False):

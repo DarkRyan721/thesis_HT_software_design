@@ -4,7 +4,7 @@ import numpy as np
 import pyvista as pv
 from pyvistaqt import QtInteractor
 
-from magnetic_field_noGPU import B_Field
+from magnetic_field_solver_cpu import B_Field
 from utils.loader_thread import LoaderWorker
 
 # Añadir ../../ (es decir, src/) al path para importar desde la raíz del proyecto
@@ -23,7 +23,7 @@ from styles.stylesheets import button_parameters_style
 # TODO: Importar el solver y el loader apropiados para el campo magnético
 # from E_field_solver import MagneticFieldSolver
 # from utils.magnetic_loader import MagneticLoaderWorker
-from paths import data_file
+from project_paths import data_file
 
 
 class MagneticOptionsPanel(QWidget):

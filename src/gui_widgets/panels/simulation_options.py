@@ -14,7 +14,7 @@ from PySide6.QtCore import Qt
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 # ───── Módulos propios ─────
-from simulation import Simulation
+from simulation_engine_viewer import Simulation
 from utils.ui_helpers import _input_with_unit
 from styles.stylesheets import *
 from utils.loader_thread import LoaderWorker

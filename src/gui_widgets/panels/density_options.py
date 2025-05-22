@@ -9,7 +9,7 @@ import pyvista as pv
 
 from pyvistaqt import QtInteractor
 
-from density import ElectronDensityModel
+from electron_density_model import ElectronDensityModel
 
 
 # Añadir ../../ (es decir, src/) al path para importar desde la raíz del proyecto
@@ -26,15 +26,15 @@ from PySide6.QtCore import QThread, Signal, QObject, QTimer
 
 # ──────────────────────────────────────────────
 # 🧩 Módulos propios
-from Gen_Mallado import HallThrusterMesh
-from E_field_solver import ElectricFieldSolver
+from mesh_generator import HallThrusterMesh
+from electric_field_solver import ElectricFieldSolver
 from styles.stylesheets import *
 from widgets.parameter_views import ParameterPanel
 from widgets.options_panel import OptionsPanel
 from widgets.view_panel import ViewPanel
 from utils.loader_thread import LoaderWorker
 from utils.ui_helpers import _input_with_unit
-from paths import data_file
+from project_paths import data_file
 
 class DensityOptionsPanel(QWidget):
     def __init__(self, main_window):

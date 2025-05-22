@@ -28,15 +28,15 @@ from PySide6.QtCore import QTimer
 
 # ──────────────────────────────────────────────
 # 🧩 Módulos propios
-from Gen_Mallado import HallThrusterMesh
-from E_field_solver import ElectricFieldSolver
+from mesh_generator import HallThrusterMesh
+from electric_field_solver import ElectricFieldSolver
 from styles.stylesheets import *
 from widgets.parameter_views import ParameterPanel
 from widgets.options_panel import OptionsPanel
 from widgets.view_panel import ViewPanel
 from utils.loader_thread import LoaderWorker
 from utils.ui_helpers import _input_with_unit
-from paths import data_file, temp_data_file, project_file
+from project_paths import data_file, temp_data_file, project_file
 
 class FieldOptionsPanel(QWidget):
     def __init__(self, main_window):
