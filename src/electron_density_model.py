@@ -196,6 +196,6 @@ if __name__ == "__main__":
 
 
     model = ElectronDensityModel(domain)
-    # model.generate_density()
-    # model.save_density()
+    model.generate_density()
+    model.save_density()
     model.plot_density(bool_3D=True, bool_XY_Plane=False, bool_XZ_plane=False)

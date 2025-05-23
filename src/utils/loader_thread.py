@@ -42,14 +42,15 @@ class LoaderWorker(QObject):
 
         elif self.mode == "field":
             self.progress.emit(0)
-            validate_density = self.params.get("validate_density", False)
+            validate_density = self.params.get("validate_density")
+            print(validate_density)
             laplace_path = data_file("E_Field_Laplace.npy")
             poisson_path = data_file("E_Field_Poisson.npy")
             field_path = poisson_path if validate_density else laplace_path
 
             # Seleccionar archivo según el checkbox
+            print(field_path)
             field_path = poisson_path if validate_density else laplace_path
-
             if not os.path.exists(field_path):
                 print(f"⚠️ Archivo de campo no encontrado: {field_path}")
                 return
@@ -85,7 +86,7 @@ class LoaderWorker(QObject):
         elif self.mode == "magnetic":
             nSteps, N, I = self.params
             magnetic_instance = B_Field(nSteps=nSteps, N=N, I=I)
-            E_File = np.load(data_file("Electric_Field_np.npy"))
+            E_File = np.load(data_file("E_Field_Laplace.npy"))
             spatial_coords = E_File[:, :3]
 
             if self.regenerate:
@@ -119,7 +120,7 @@ class LoaderWorker(QObject):
             try:
 
                 # Cargar los datos de densidad directamente para emitirlos como PolyData
-                E_np = np.load(data_file("Electric_Field_np.npy"))
+                E_np = np.load(data_file("E_Field_Laplace.npy"))
                 points = E_np[:, :3]
                 n0 = np.load(data_file("density_n0.npy"))
                 n0_log = np.log10(n0)

@@ -37,9 +37,9 @@ try:
     print(f"[DEBUG] run_solver.py terminó exitosamente.")
 
 except Exception as e:
-    print("[ERROR] run_solver.py falló:")
+    print("[ERROR] electric_field_process.py falló:")
     traceback.print_exc()
     # Opcional: escribe un archivo de error
-    with open("run_solver_error.log", "w") as ferr:
+    with open("electric_field_process_error.log", "w") as ferr:
         ferr.write(traceback.format_exc())
     sys.exit(1)

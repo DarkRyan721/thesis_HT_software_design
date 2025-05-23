@@ -93,7 +93,7 @@ class ElectricFieldSolver:
             boundary_conditions.append(bc)
 
         # Save BC function for visualization
-        with io.XDMFFile(self.domain.comm, "boundary_conditions.xdmf", "w") as xdmf:
+        with io.XDMFFile(self.domain.comm, data_file("") + "boundary_conditions.xdmf", "w") as xdmf:
             xdmf.write_mesh(self.domain)
             xdmf.write_function(u_bc)
 
@@ -115,7 +115,7 @@ class ElectricFieldSolver:
         E_field.interpolate(E_expr)
 
         # Save the electric field
-        with io.XDMFFile(self.domain.comm, "Electric_Field.xdmf", "w") as xdmf:
+        with io.XDMFFile(self.domain.comm, data_file("") + "Electric_Field.xdmf", "w") as xdmf:
             xdmf.write_mesh(self.domain)
             xdmf.write_function(E_field)
 
@@ -157,7 +157,7 @@ class ElectricFieldSolver:
         phi_h = problem.solve()
 
         # Save the potential
-        with io.XDMFFile(self.domain.comm, "Laplace.xdmf", "w") as xdmf:
+        with io.XDMFFile(self.domain.comm, data_file("") +"Laplace.xdmf", "w") as xdmf:
             xdmf.write_mesh(self.domain)
             xdmf.write_function(phi_h)
 
@@ -199,7 +199,7 @@ class ElectricFieldSolver:
         phi_h = problem.solve()
 
         # Save the potential
-        with io.XDMFFile(self.domain.comm, "Poisson.xdmf", "w") as xdmf:
+        with io.XDMFFile(self.domain.comm, data_file("") + "Poisson.xdmf", "w") as xdmf:
             xdmf.write_mesh(self.domain)
             xdmf.write_function(phi_h)
 
@@ -261,7 +261,7 @@ if __name__ == "__main__":
     print("\n⚡ Solving Laplace equation...")
     t_laplace_start = time.perf_counter()
     phi_laplace, E_laplace = solver.solve_laplace(Volt=Volt_input)
-    solver.save_electric_field_numpy(E_laplace, filename="Electric_Field_np.npy")
+    solver.save_electric_field_numpy(E_laplace, filename="E_Field_Laplace.npy")
     t_laplace_end = time.perf_counter()
     print(f"✅ Laplace solution completed in {t_laplace_end - t_laplace_start:.2f} s.")
 
@@ -270,7 +270,7 @@ if __name__ == "__main__":
     t_poisson_start = time.perf_counter()
     source_term = solver.load_density_from_npy()
     phi_poisson, E_poisson = solver.solve_poisson(source_term=source_term)
-    solver.save_electric_field_numpy(E_poisson, filename="Electric_Field_np.npy")
+    solver.save_electric_field_numpy(E_poisson, filename="E_Field_Poisson.npy")
     t_poisson_end = time.perf_counter()
     print(f"✅ Poisson solution completed in {t_poisson_end - t_poisson_start:.2f} s.")
 

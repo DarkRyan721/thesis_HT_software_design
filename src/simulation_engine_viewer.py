@@ -7,12 +7,13 @@ from pyvistaqt import QtInteractor
 
 import os
 
+from project_paths import data_file
+
 
 class Simulation():
-    def __init__(self, plotter, L=0.02, Rin=0.028, Rex=0.05):
-        # data_dir = os.path.join(os.path.dirname(__file__), "../data_files")
-        # self.particle_path = os.path.abspath(os.path.join(data_dir, "particle_simulation.npy"))
-        self.particle_path = "particle_simulation.npy"
+    def __init__(self, plotter = None, L=0.02, Rin=0.028, Rex=0.05):
+
+        self.particle_path = data_file("particle_simulation.npy")
 
         """
             L -> Longitud/profundidad del propulsor
@@ -24,6 +25,9 @@ class Simulation():
         """
         #_____________________________________________________________________________________________________
         #       Inicializacion de variables geometricas
+        if plotter is None:
+            # Usar un plotter de PyVista estándar
+            plotter = pv.Plotter(window_size=[1280, 800])
         self.plotter = plotter
         self.L = L
         self.Rin = Rin
@@ -215,10 +219,13 @@ class Simulation():
     def Animation(self, neutral_visible = False):
         #_____________________________________________________________________________________________________
         #       Mostrar la ventana y asignacion de key events
+        if isinstance(self.plotter, pv.Plotter):
+            self.plotter.show(auto_close=False, interactive_update=True)
 
         # self.plotter.show(auto_close=False, interactive_update=True)
 
         self.plotter.add_key_event("space", self.pause_simulation)
+        
 
         #_____________________________________________________________________________________________________
         #       Creacion de buffers para las particulas del simulador
@@ -294,7 +301,7 @@ class Simulation():
 
     def Plume_plane(self):
         # Cargar posiciones
-        self.all_positions = np.load("data_files/particle_simulation.npy", mmap_mode="r")
+        self.all_positions = np.load(data_file("particle_simulation.npy"), mmap_mode="r")
         
         frame = 450
         frame_data = self.all_positions[frame]
@@ -326,12 +333,12 @@ class Simulation():
         plt.tight_layout()
         plt.show()
 
-# if __name__ == "__main__":
-#     L = 0.02
-#     Rext = 0.05
-#     Rint = 0.028
+if __name__ == "__main__":
+    L = 0.02
+    Rext = 0.05
+    Rint = 0.028
 
-#     simulacion = Simulation()
+    simulacion = Simulation()
 
-#     simulacion.Animation()
-#     #simulacion.Plume_plane()
+    simulacion.Animation()
+    #simulacion.Plume_plane()

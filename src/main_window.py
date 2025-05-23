@@ -26,7 +26,7 @@ from widgets.panels.simulation_options import SimulationOptionsPanel
 from widgets.panels.density_options import DensityOptionsPanel
 from widgets.panels.magnetic_options import MagneticOptionsPanel
 from widgets.panels.field_options import FieldOptionsPanel
-from styles.stylesheets import *
+from gui_styles.stylesheets import *
 from widgets.parameter_views import ParameterPanel
 from widgets.options_panel import OptionsPanel
 from widgets.view_panel import ViewPanel
@@ -40,8 +40,8 @@ class MainWindow(QtW.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("HET simulator")
-        self.setMinimumSize(1500,800)
-        self.resize(1500,800)
+        self.setMinimumSize(800,400)
+        self.resize(800,400)
 
         self.simulation_state = SimulationState()
         self.home_panel = HomeOptionsPanel(self)

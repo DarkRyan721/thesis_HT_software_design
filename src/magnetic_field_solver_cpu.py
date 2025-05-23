@@ -5,6 +5,8 @@ from tqdm import tqdm
 import matplotlib.colors as colors
 from scipy.interpolate import griddata
 
+from project_paths import data_file
+
 class B_Field():
     def __init__(self, nSteps=5000, L=0.02, Rin=0.028, Rext=0.05, N=200, I=4.5):
         #___________________________________________________________________________________________
@@ -400,7 +402,7 @@ class B_Field():
     def Save_B_Field(self, B, S):
         MagField_array = np.column_stack((S,B))
 
-        np.save("data_files/Magnetic_Field_np.npy", MagField_array)
+        np.save(data_file("Magnetic_Field_np.npy"), MagField_array)
         print("Archivo guardado")
 
 if __name__ == "__main__":
@@ -408,8 +410,7 @@ if __name__ == "__main__":
     # EXAMPLE FOR GUI:
 
     # 1. Cargar y guardar los nodos de la malla
-
-    E_File = np.load("data_files/Electric_Field_np.npy")
+    E_File = np.load(data_file("E_Field_Laplace.npy"))
     spatial_coords = E_File[:, :3]
 
     # 2. Crear objeto del campo magnetico

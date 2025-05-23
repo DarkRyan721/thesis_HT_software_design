@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.spatial import cKDTree
 from tqdm import tqdm
-from thermostat import aplicar_termostato
 from monte_carlo_collisions import MCC_Numpy
+from project_paths import data_file
 
 class PIC():
     def __init__(self, Rin, Rex, N, L, dt, q_m, alpha, sigma_ion):
@@ -15,10 +15,10 @@ class PIC():
         self.alpha = alpha
         self.sigma_ion = sigma_ion
 
-        self.E_values = np.load("data_files/Electric_Field_np.npy")[:,3:]
-        self.mesh_nodes = np.load("data_files/Electric_Field_np.npy")[:,:3]
-        self.B_values = np.load("data_files/Magnetic_Field_np.npy")[:,3:]
-        self.Rho = np.load('data_files/density_n0.npy')
+        self.E_values = np.load(data_file("E_Field_Poisson.npy"))[:,3:]
+        self.mesh_nodes = np.load(data_file("E_Field_Poisson.npy"))[:,:3]
+        self.B_values = np.load(data_file("Magnetic_Field_np.npy"))[:,3:]
+        self.Rho = np.load(data_file('density_n0.npy'))
         self.Rho_end = self.Rho
 
         self.tree = cKDTree(self.mesh_nodes)
@@ -146,43 +146,43 @@ class PIC():
         #___________________________________________________________________________________________
         #       Guardar el archivo con todas las posiciones simuladas
 
-        np.save("data_files/particle_simulation.npy", self.all_positions)
+        np.save(data_file("particle_simulation.npy"), self.all_positions)
         print("Simulación guardada exitosamente en 'particle_simulation.npy'")
 
-        print("Impulso Especifico: ", self.specific_impulse)
+        print("Impulso Especifico: ", self.specific_impulse*0.2)
 
-        np.save("data_files/density_end.npy", self.Rho_end)
+        np.save(data_file("density_end.npy"), self.Rho_end)
         print("Densidad guardada exitosamente en  'density_end.npy'")
 
         #___________________________________________________________________________________________
 
 if __name__ == "__main__":
     N = 1000
-    dt = 0.0000001
+    dt = 0.00000004
     q_m = 7.35e5
     alpha = 0.9
     frames = 500
     sigma_ion = 1e-11
 
-    def leer_datos_archivo(ruta_archivo):
-        datos = {}
-        with open(ruta_archivo, "r") as archivo:
-            for linea in archivo:
-                # Verificamos que la línea contenga ':'
-                if ":" in linea:
-                    clave, valor = linea.split(":", maxsplit=1)
-                    # Limpiamos espacios
-                    clave = clave.strip()
-                    valor = valor.strip()
-                    # Almacenar en el diccionario (conversión a entero o float)
-                    datos[clave] = float(valor)
-        return datos
-    ruta = "data_files/geometry_parameters.txt"
-    info = leer_datos_archivo(ruta)
+    # def leer_datos_archivo(ruta_archivo):
+    #     datos = {}
+    #     with open(ruta_archivo, "r") as archivo:
+    #         for linea in archivo:
+    #             # Verificamos que la línea contenga ':'
+    #             if ":" in linea:
+    #                 clave, valor = linea.split(":", maxsplit=1)
+    #                 # Limpiamos espacios
+    #                 clave = clave.strip()
+    #                 valor = valor.strip()
+    #                 # Almacenar en el diccionario (conversión a entero o float)
+    #                 datos[clave] = float(valor)
+    #     return datos
+    # ruta = data_file("geometry_parameters.txt")
+    # info = leer_datos_archivo(ruta)
 
-    Rin = info.get("radio_interno",0) # Radio interno del cilindro hueco
-    Rex = info.get("radio_externo",0) # Primer radio externo del cilindro hueco
-    L = info.get("profundidad",0) # Longitud del cilindro
+    # Rin = info.get("radio_interno",0) # Radio interno del cilindro hueco
+    # Rex = info.get("radio_externo",0) # Primer radio externo del cilindro hueco
+    # L = info.get("profundidad",0) # Longitud del cilindro
 
     # EXAMPLE FOR GUI:
 
@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
     # 1. Crear el objeto de PIC con todas sus variables
 
-    pic = PIC(Rin=Rin, Rex=Rex, N=N, L=L, dt=dt, q_m=q_m, alpha=alpha, sigma_ion=sigma_ion)
+    pic = PIC(Rin=0.028, Rex=0.05, N=N, L=0.02, dt=dt, q_m=q_m, alpha=alpha, sigma_ion=sigma_ion)
 
     # 2. Inicializar la simulacion(Posiciones iniciales, velocidades iniciales...)
 
