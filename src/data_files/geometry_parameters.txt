@@ -1,4 +1,0 @@
-radio_externo: 0.05
-radio_interno: 0.028
-profundidad: 0.02
-lado_cubo: 0.1
