@@ -33,6 +33,8 @@ class Simulation():
         self.Rin = Rin
         self.Rex = Rex
 
+        self.current_frame = 0
+
         #_____________________________________________________________________________________________________
         #       Cargar posiciones de las particulas en el tiempo
 
@@ -56,6 +58,47 @@ class Simulation():
         self.Plot_Configuration()
 
         #_____________________________________________________________________________________________________
+
+    def step_frame(self, neutral_visible=False):
+        print(f"[DEBUG] step_frame: current_frame={self.current_frame}, num_frames={self.num_frames}")
+        if self.current_frame >= self.num_frames:
+            print("[ERROR] Intento de acceder a frame fuera de rango")
+            return False
+        frame_data = self.all_positions[self.current_frame]
+        if np.isnan(frame_data).any() or np.isinf(frame_data).any():
+            print("[ERROR] Datos inválidos (NaN o Inf) en frame", self.current_frame)
+            return False
+        frame_data = self.all_positions[self.current_frame]
+        mask_ions = frame_data[:, 3] == 1
+        ions_points = frame_data[mask_ions, :3]
+        mask_neutrals = frame_data[:, 3] == 0
+        neutrals_points = frame_data[mask_neutrals, :3]
+        # Actualiza los actores con los datos de este frame
+
+        # IONES
+        if self.ion_actor is not None:
+            if ions_points.shape[0] > 0:
+                self.ions.points = ions_points
+                self.ion_actor.SetVisibility(True)
+            else:
+                self.ion_actor.SetVisibility(False)
+
+        # NEUTRALES
+        if self.neutral_actor is not None and neutral_visible:
+            if neutrals_points.shape[0] > 0:
+                self.neutrals.points = neutrals_points
+                self.neutral_actor.SetVisibility(True)
+            else:
+                self.neutral_actor.SetVisibility(False)
+        elif self.neutral_actor is not None:
+            self.neutral_actor.SetVisibility(False)
+        self.plotter.update()
+        self.current_frame += 1
+        return True
+
+
+    def reset_animation(self):
+        self.current_frame = 0
 
     def on_close(self):
         self.window_closed = True
@@ -217,47 +260,43 @@ class Simulation():
         #_____________________________________________________________________________________________________
 
     def Animation(self, neutral_visible = False):
-        #_____________________________________________________________________________________________________
-        #       Mostrar la ventana y asignacion de key events
-        if isinstance(self.plotter, pv.Plotter):
+        if isinstance(self.plotter, pv.Plotter) and not isinstance(self.plotter, QtInteractor):
             self.plotter.show(auto_close=False, interactive_update=True)
 
-        # self.plotter.show(auto_close=False, interactive_update=True)
-
         self.plotter.add_key_event("space", self.pause_simulation)
-        
 
-        #_____________________________________________________________________________________________________
-        #       Creacion de buffers para las particulas del simulador
+        def restart_animation_event():
+            print("[DEBUG] Reiniciando animación desde tecla Enter.")
+            self.current_frame = 0  # reinicia la animación
+            self.pause["valor"] = False  # si quieres que automáticamente reanude
 
-        max_particles = self.num_particles  # Tamaño máximo del buffer
+        self.plotter.add_key_event("Return", restart_animation_event)
 
+        max_particles = self.num_particles
         buffer_ions = np.full((max_particles, 3), np.nan, dtype=np.float32)
         buffer_neutrals = np.full((max_particles, 3), np.nan, dtype=np.float32)
 
-        #_____________________________________________________________________________________________________
-        #       Ciclo de trabajo para el renderizado
-
-        if neutral_visible == False:
+        if not neutral_visible:
             self.neutral_actor.SetVisibility(False)
 
-        for frame in range(self.num_frames):
-            if self.window_closed:
-                print("\n")
-                break
+        # Este while permite reiniciar desde cualquier punto
+        while not self.window_closed:
+            if self.current_frame >= self.num_frames:
+                # Pausa o termina cuando llegue al final
+                self.pause["valor"] = True
+                # Puedes poner aquí un break si quieres cerrar la animación al terminar.
+                # break
+                self.current_frame = self.num_frames - 1  # Para que no sobrepase
 
-            while self.pause["valor"]:
+            while self.pause["valor"] and not self.window_closed:
                 self.plotter.update()
                 time.sleep(0.001)
-                frame -= 1
+                continue
 
+            frame = self.current_frame
             frame_data = self.all_positions[frame]
-
             mask_ions = frame_data[:, 3] == 1
-
             ions_points = frame_data[mask_ions, :3]
-
-            # Update ions
             num_ions = min(len(ions_points), max_particles)
 
             if self.ion_actor is not None:
@@ -270,15 +309,10 @@ class Simulation():
                 else:
                     self.ion_actor.SetVisibility(False)
 
-                #self.ion_actor.SetVisibility(False)
-
-            # Update neutrals
-            if neutral_visible == True:
+            if neutral_visible:
                 mask_neutrals = frame_data[:, 3] == 0
                 neutrals_points = frame_data[mask_neutrals, :3]
                 num_neutrals = min(len(neutrals_points), max_particles)
-
-
                 if self.neutral_actor is not None:
                     buffer_neutrals[:] = np.nan
                     if num_neutrals > 0:
@@ -289,20 +323,22 @@ class Simulation():
                     else:
                         self.neutral_actor.SetVisibility(False)
             else:
-                num_neutrals = self.num_particles-num_ions
+                num_neutrals = self.num_particles - num_ions
 
             self.plotter.update()
             time.sleep(1 / 60)
-            print(f"\rFrame: {frame + 1}/{self.num_frames} | Iones: {num_ions} | Neutros: {num_neutrals}", end='', flush=True)
+            print(f"\rFrame: {frame + 1}/{self.num_frames} | Iones: {num_ions} | Neutros: {num_neutrals}\n", end='', flush=True)
+
+            # Incrementa solo si no está en pausa y no se ha cerrado la ventana
+            self.current_frame += 1
 
         print("\n")
-
         #_____________________________________________________________________________________________________
 
     def Plume_plane(self):
         # Cargar posiciones
         self.all_positions = np.load(data_file("particle_simulation.npy"), mmap_mode="r")
-        
+
         frame = 450
         frame_data = self.all_positions[frame]
 
@@ -333,12 +369,23 @@ class Simulation():
         plt.tight_layout()
         plt.show()
 
+    def is_finished(self):
+        return self.current_frame >= self.num_frames - 1
+
 if __name__ == "__main__":
     L = 0.02
     Rext = 0.05
     Rint = 0.028
 
+
+    arr = np.load('data_files/particle_simulation.npy', mmap_mode='r')
+    print(arr.shape, arr.dtype)
+    print("Contains NaN?", np.isnan(arr).any())
+    print("Contains Inf?", np.isinf(arr).any())
+    print("Min/max:", arr.min(), arr.max())
+
     simulacion = Simulation()
 
     simulacion.Animation()
+
     #simulacion.Plume_plane()

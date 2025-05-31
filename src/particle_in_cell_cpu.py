@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.spatial import cKDTree
 from tqdm import tqdm
-from monte_carlo_collisions import MCC_Numpy
+from monte_carlo_collisions_cpu import MCC_Numpy
 from project_paths import data_file
 
 class PIC():

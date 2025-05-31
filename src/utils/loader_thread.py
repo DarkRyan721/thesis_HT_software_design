@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import time
 from PySide6.QtCore import QThread, Signal, QObject
 import os
@@ -16,23 +18,20 @@ class LoaderWorker(QObject):
     started = Signal()
     progress = Signal(int)
 
-    def __init__(self, mode="mesh", params = None, regenerate=False, plotter=None, solver = None ):
+    def __init__(self, mode="mesh", params = None, plotter=None, solver = None ):
         super().__init__()
         self.mode = mode
         self.params = params
-        self.regenerate = regenerate
         self.plotter = plotter
         self.solver = solver
         self._is_running = True
 
     @Slot()
     def run(self):
-        print(f"✅ Worker RUN llamado en modo: {self.mode}")
-
+        # print(f"✅ Worker RUN llamado en modo: {self.mode}")
 
         if self.mode == "mesh":
             msh = meshio.read(data_file("SimulationZone.msh"))
-
             cells = msh.cells_dict.get("triangle")
             if cells is None:
                 return
@@ -76,35 +75,26 @@ class LoaderWorker(QObject):
             #     log_magnitudes = log_magnitudes[idx]
 
             # Convertir a PolyData y generar glyphs
+
             mesh = pv.PolyData(points)
-            mesh["vectors"] = vectors
+            mesh["E_field"] = vectors
             mesh["magnitude"] = log_magnitudes
-            glyphs = mesh.glyph(orient="vectors", scale=False, factor=0.01)
             self.progress.emit(100)
-            self.finished.emit(glyphs)
+            self.finished.emit(mesh)
 
         elif self.mode == "magnetic":
-            nSteps, N, I = self.params
-            magnetic_instance = B_Field(nSteps=nSteps, N=N, I=I)
-            E_File = np.load(data_file("E_Field_Laplace.npy"))
-            spatial_coords = E_File[:, :3]
+            print("🔄 Cargando campo magnético...")
+            file_path = data_file("Magnetic_Field_np.npy")
+            if not os.path.exists(file_path):
+                print(f"⚠️ Archivo no encontrado: {file_path}")
+                return
 
-            if self.regenerate:
-                print("⚙️ Recalculando campo magnético...")
-                B_value = magnetic_instance.Total_Magnetic_Field(S=spatial_coords)
-                magnetic_instance.Save_B_Field(B=B_value, S=spatial_coords)
-            else:
-                file_path = data_file("Magnetic_Field_np.npy")
-                if not os.path.exists(file_path):
-                    print(f"⚠️ Archivo no encontrado: {file_path}")
-                    return
-
-                data = np.load(file_path)
-                if data.shape[1] < 6:
-                    print("⚠️ Formato de campo magnético inválido")
-                    return
-                spatial_coords = data[:, :3]
-                B_value = data[:, 3:]
+            data = np.load(file_path)
+            if data.shape[1] < 6:
+                print("⚠️ Formato de campo magnético inválido")
+                return
+            spatial_coords = data[:, :3]
+            B_value = data[:, 3:]
 
             points = spatial_coords
             vectors = B_value
@@ -141,12 +131,11 @@ class LoaderWorker(QObject):
 
         elif self.mode == "simulation":
             print("🚀 Iniciando simulación de partículas...")
-
             if self.plotter is None:
                 print("⚠️ Instancia de simulación no proporcionada.")
                 return
-
             try:
+                print("🔄 Ejecutando simulación...")
                 self.plotter.Animation(neutral_visible=self.params.get("neutral_visible", False))
                 self.finished.emit("Simulation completed")
             except Exception as e:

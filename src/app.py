@@ -1,36 +1,74 @@
 import sys
 import os
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QSplashScreen, QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt, QTimer, QProcess
 from main_window import MainWindow
 import signal
-import subprocess
 
-from project_paths import worker
+from project_paths import data_file, project_file, worker
 
-def run_generation_subprocess():
-    # Llama a tu script de verificación/generación
-    # Puedes ajustar el path y el comando según tu estructura
-    process = subprocess.Popen([sys.executable, worker("initial_state_process.py")])
-    return process
+class LoadingScreen(QWidget):
+    def __init__(self, msg):
+        super().__init__()
+        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.CustomizeWindowHint)
+        layout = QVBoxLayout(self)
+        self.label = QLabel(msg)
+        layout.addWidget(self.label)
+        self.setLayout(layout)
+        self.resize(400, 100)
+        self.setWindowTitle("Preparando datos...")
 
 def run_app():
-    # Lanza el subproceso y espera a que termine ANTES de lanzar la interfaz
-    gen_proc = run_generation_subprocess()
-    print("Esperando a que termine el proceso de inicialización...")
-    return_code = gen_proc.wait()
-    print(f"Subproceso finalizado con código: {return_code}")
+    # ... tu lógica para scripts y archivos ...
+    script_files = [
+        "electric_field_solver.py",
+        "magnetic_field_solver_cpu.py",
+        "mesh_generator.py",
+        "project_paths.py",
+        "particle_in_cell_cpu.py"
+    ]
 
-    # Si el subproceso terminó correctamente, lanza la app
-    if return_code == 0:
-        app = QApplication(sys.argv)
-        app.setStyle("Fusion")
-        signal.signal(signal.SIGINT, signal.SIG_DFL)
+    data_files = [
+        "SimulationZone.msh",
+        "E_Field_Laplace.npy",
+        "E_Field_Poisson.npy",
+        "Magnetic_Field_np.npy",
+        "particle_simulation.npy"
+    ]
+
+    missing_scripts = [f for f in script_files if not os.path.isfile(project_file(f))]
+    missing_data = [f for f in data_files if not os.path.isfile(data_file(f))]
+
+    app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    if missing_scripts or missing_data:
+        loading_screen = LoadingScreen("Generando archivos iniciales. Por favor, espere...")
+        loading_screen.show()
+
+        process = QProcess()
+        process.setProgram(sys.executable)
+        process.setArguments([worker("initial_state_process.py")])
+
+        def check_finished(exitCode, exitStatus):
+            loading_screen.label.setText(f"Generación finalizada. Código: {exitCode}")
+            loading_screen.hide()
+            window = MainWindow()
+            window.show()
+            # Ya puedes cerrar loading_screen
+            # Si quieres, elimina loading_screen: loading_screen.deleteLater()
+
+        process.finished.connect(check_finished)
+        process.start()
+
+        # Lanzar la app (esto mantiene vivo el event loop)
+        sys.exit(app.exec())
+
+    else:
         window = MainWindow()
         window.show()
         sys.exit(app.exec())
-    else:
-        print("Error: El subproceso de generación falló. No se lanzará la interfaz.")
-        sys.exit(1)
 
 if __name__ == "__main__":
     run_app()

@@ -29,5 +29,5 @@ class ParameterPanel(QFrame):
             border-bottom-right-radius: 10px;
         }
         """)
-        
+
         parameters_layout.addWidget(self.parameters_view)

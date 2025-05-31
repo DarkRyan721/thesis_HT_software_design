@@ -12,6 +12,7 @@ from dolfinx.io import XDMFFile
 import dolfinx.io.gmshio as gmshio
 import pyvista as pv
 import os
+import psutil
 from project_paths import data_file
 
 
@@ -22,7 +23,7 @@ class HallThrusterMesh:
     - Supports configurable geometry and mesh refinement levels.
     - Generates physical tags for regions and exports mesh for simulation.
     """
-    def __init__(self, R_big=0.1/2, R_small=0.056/2, H=0.02, refinement_level="low"):
+    def __init__(self, R_big=0.1/2, R_small=0.056/2, H=0.02, refinement_level="test", min_physical_scale=None, max_elements='auto'):
         """
         Initialize geometric parameters and refinement options.
 
@@ -40,29 +41,184 @@ class HallThrusterMesh:
         self.R_big = R_big
         self.R_small = R_small
         self.H = H
+        self.max_elements = max_elements
         self.L = 5 * R_big
         self.filename = data_file("SimulationZone")
 
         self.refinement_level = refinement_level.lower()  # Make sure it's lowercase
 
         # Define SizeMin and SizeMax based on refinement level
-        self._set_refinement_parameters()
+
+    # def _set_refinement_parameters(self):
+    #     """
+    #     Internal method to set mesh refinement sizes.
+    #     """
+    #     if self.refinement_level == "low":
+    #         self.size_min = 0.16*self.R_big
+    #         self.size_max = 0.24*self.R_big
+    #     elif self.refinement_level == "medium":
+    #         self.size_min = 0.1*self.R_big
+    #         self.size_max = 0.18*self.R_big
+    #     elif self.refinemen max_elements = None
+    #         raise ValueError("Invalid refinement level. Choose 'low', 'medium', or 'high'.")
+
+        # 1. Cálculo automático o manual del número máximo de elementos
+        if max_elements == 'auto' or max_elements is None:
+            self.max_elements = self.estimate_max_elements_from_ram()
+        else:
+            self.max_elements = max_elements
+
+        # 2. Definición del tamaño de la malla según escala física o heurística
+        if min_physical_scale is not None:
+            self._calculate_mesh_parameters(min_physical_scale, self.refinement_level)
+        else:
+            self._set_refinement_parameters()
+
+    @staticmethod
+    def estimate_max_elements_from_ram():
+        """
+        Estimate the maximum safe number of mesh elements based on available RAM.
+        - Assumes each element consumes approximately 20 KB (including overhead, arrays, and simulation data).
+        - Uses 70% of total system RAM as a safety factor.
+        - Limits output to between 100,000 and 10,000,000 elements.
+        Returns:
+            int: Maximum safe number of elements for meshing.
+        """
+        GB = 1024 ** 3  # Bytes in a gigabyte
+        ram_total = psutil.virtual_memory().total / GB  # Total system RAM in GB
+        bytes_por_elemento = 20_000  # Estimated bytes per element (20 KB)
+        safe_fraction = 0.7  # Use 70% of total RAM to avoid overcommit
+        safe_bytes = ram_total * GB * safe_fraction  # Usable bytes
+        max_elements = int(safe_bytes // bytes_por_elemento)
+        # Limit range to avoid excess or pathological cases
+        max_elements = max(100_000, min(max_elements, 10_000_000))
+        print(f"[INFO] RAM total: {ram_total:.1f} GB, max_safe_elements estimado: {max_elements}")
+        return max_elements
+
+    def _set_refinement_parameters(self):
+        """
+        Sets mesh size parameters (size_min, size_max) based on refinement level and max_elements.
+        - If max_elements is defined, the number of elements is a fraction of max_elements per level:
+        - low:   30% of max_elements
+        - medium: 60%
+        - high:   100%
+        - Calculates the target mesh size (h) from domain volume and target_elements.
+        - If max_elements is not defined, uses hardcoded heuristics based on the outer radius.
+        """
+        level_map = {
+            "low": 0.3,
+            "medium": 0.6,
+            "high": 1.0
+        }
+        if self.max_elements is not None:
+            if self.refinement_level not in level_map:
+                raise ValueError("Invalid refinement level. Choose 'low', 'medium', or 'high'.")
+            # Calculate target number of elements
+            target_elements = int(self.max_elements * level_map[self.refinement_level])
+            Lx = Ly = self.L
+            Lz = self.H
+            volume = Lx * Ly * Lz
+            # Compute mesh cell size to fit within target_elements
+            h = (volume / target_elements) ** (1/3)
+            self.size_min = h
+            self.size_max = 1.5 * h  # Slightly coarser for max
+            print(f"[INFO] refinement_level={self.refinement_level}, "
+                f"max_elements={self.max_elements}, "
+                f"target_elements={target_elements} → h={h:.5f}, "
+                f"size_min={self.size_min:.5f}, size_max={self.size_max:.5f}")
+        else:
+            # Fallback: fixed heuristics (not based on memory)
+            if self.refinement_level == "low":
+                self.size_min = 0.16 * self.R_big
+                self.size_max = 0.24 * self.R_big
+            elif self.refinement_level == "medium":
+                self.size_min = 0.1 * self.R_big
+                self.size_max = 0.18 * self.R_big
+            elif self.refinement_level == "high":
+                self.size_min = 0.04 * self.R_big
+                self.size_max = 0.08 * self.R_big
+            else:
+                raise ValueError("Invalid refinement level. Choose 'low', 'medium', or 'high'.")
+            print(f"[INFO] (heuristic) refinement_level={self.refinement_level} → "
+                f"size_min={self.size_min:.5f}, size_max={self.size_max:.5f}")
+
+    def _calculate_mesh_parameters(self, min_physical_scale, refinement_level):
+        """
+        Adjust mesh size based on a minimum physical scale to be resolved.
+        - 'min_physical_scale' defines the smallest physical feature to capture (e.g., Debye length).
+        - Applies a factor (2.0, 1.0, 0.5) for 'low', 'medium', 'high' refinement.
+        - Ensures total number of elements does not exceed max_safe_elements; if so, h is recalculated.
+        - Updates size_min, size_max and self.max_elements accordingly.
+        """
+        refinement_factors = {
+            "low": 2.0,
+            "medium": 1.0,
+            "high": 0.5
+        }
+        max_safe_elements = self.max_elements
+        if refinement_level not in refinement_factors:
+            raise ValueError("Nivel de refinamiento inválido.")
+        factor = refinement_factors[refinement_level]
+        h = min_physical_scale * factor
+        Lx = Ly = self.L
+        Lz = self.H
+        volume = Lx * Ly * Lz
+        n_elements = int(volume / (h ** 3))
+        # If too many elements, adjust h to fit within RAM
+        if n_elements > max_safe_elements:
+            h = (volume / max_safe_elements) ** (1/3)
+            n_elements = max_safe_elements
+            print(f"[WARN] Se ajusta h a {h:.4g} m para no exceder {max_safe_elements} elementos.")
+        self.size_min = h
+        self.size_max = 1.5 * h
+        self.max_elements = n_elements
+        print(f"[INFO] Refinement: {refinement_level}, escala física mínima: {min_physical_scale:.3g} m, "
+            f"h usado: {h:.3g} m, elementos estimados: {n_elements}")
 
     def _set_refinement_parameters(self):
         """
         Internal method to set mesh refinement sizes.
+        Now, refinement_level controls what fraction of max_elements you target.
         """
-        if self.refinement_level == "low":
-            self.size_min = 0.16*self.R_big
-            self.size_max = 0.24*self.R_big
-        elif self.refinement_level == "medium":
-            self.size_min = 0.1*self.R_big
-            self.size_max = 0.18*self.R_big
-        elif self.refinement_level == "high":
-            self.size_min = 0.04*self.R_big
-            self.size_max = 0.08*self.R_big
+        # Si tienes max_elements definido, usa escalas relativas:
+        level_map = {
+            "test": 0.001,
+            "low": 0.01,
+            "medium": 0.04,
+            "high": 0.1,
+            "ultra": 0.2
+        }
+
+        if self.max_elements is not None:
+            # Ajusta el número de elementos objetivo según el nivel
+            if self.refinement_level not in level_map:
+                raise ValueError("Invalid refinement level. Choose 'low', 'medium', or 'high'.")
+            target_elements = int(self.max_elements * level_map[self.refinement_level])
+
+            Lx = Ly = self.L
+            Lz = self.H
+            volume = Lx * Ly * Lz
+            h = (volume / target_elements) ** (1/3)
+            self.size_min = h
+            self.size_max = 1.5 * h
+            print(f"[INFO] refinement_level={self.refinement_level}, "
+                f"max_elements={self.max_elements}, "
+                f"target_elements={target_elements} → h={h:.5f}, "
+                f"size_min={self.size_min:.5f}, size_max={self.size_max:.5f}")
         else:
-            raise ValueError("Invalid refinement level. Choose 'low', 'medium', or 'high'.")
+            # Si no se define max_elements, usar los heurísticos antiguos
+            if self.refinement_level == "low":
+                self.size_min = 0.16 * self.R_big
+                self.size_max = 0.24 * self.R_big
+            elif self.refinement_level == "medium":
+                self.size_min = 0.1 * self.R_big
+                self.size_max = 0.18 * self.R_big
+            elif self.refinement_level == "high":
+                self.size_min = 0.04 * self.R_big
+                self.size_max = 0.08 * self.R_big
+            else:
+                raise ValueError("Invalid refinement level. Choose 'low', 'medium', or 'high'.")
+            print(f"[INFO] (heuristic) refinement_level={self.refinement_level} → size_min={self.size_min:.5f}, size_max={self.size_max:.5f}")
 
     def create_mesh(self, comm: MPI.Comm, model: gmsh.model, name: str):
         """
@@ -144,7 +300,6 @@ class HallThrusterMesh:
                 location='outer', all_edges=True, grid='front'
             )
         plotter_iso.show()
-
 
     def generate(self):
         """
@@ -364,7 +519,14 @@ if __name__ == "__main__":
     outer_radius = 0.1/2 #0.1/2
     inner_radius = 0.056/2 #0.056/2
     height = 0.02 #0.02
-    refinement = "medium"
-    mesh_gen = HallThrusterMesh(R_big=outer_radius, R_small=inner_radius, H=height, refinement_level=refinement)
+    refinement = "test"
+
+    mesh_gen = HallThrusterMesh(
+        R_big=outer_radius,
+        R_small=inner_radius,
+        H=height,
+        refinement_level=refinement,
+        max_elements='auto'  # automático según RAM
+    )
     mesh_gen.generate()
-    HallThrusterMesh.visualize_mesh_views(data_file("SimulationZone.msh"))
+    HallThrusterMesh.visualize_mesh_views(data_file("SimulationZone.msh"), show_grid=True)

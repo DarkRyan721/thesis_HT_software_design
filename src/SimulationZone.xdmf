@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
+<Xdmf Version="3.0" xmlns:xi="https://www.w3.org/2001/XInclude">
+  <Domain>
+    <Grid Name="SPT100_Simulation_Zone" GridType="Uniform">
+      <Topology TopologyType="Tetrahedron" NumberOfElements="1959645" NodesPerElement="4">
+        <DataItem Dimensions="1959645 4" NumberType="Int" Format="HDF">SimulationZone.h5:/Mesh/SPT100_Simulation_Zone/topology</DataItem>
+      </Topology>
+      <Geometry GeometryType="XYZ">
+        <DataItem Dimensions="333735 3" Format="HDF">SimulationZone.h5:/Mesh/SPT100_Simulation_Zone/geometry</DataItem>
+      </Geometry>
+    </Grid>
+    <Grid Name="SPT100_Simulation_Zone_cells" GridType="Uniform">
+      <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@Name='SPT100_Simulation_Zone']/Geometry)" />
+      <Topology TopologyType="Tetrahedron" NumberOfElements="1959645" NodesPerElement="4">
+        <DataItem Dimensions="1959645 4" NumberType="Int" Format="HDF">SimulationZone.h5:/MeshTags/SPT100_Simulation_Zone_cells/topology</DataItem>
+      </Topology>
+      <Attribute Name="SPT100_Simulation_Zone_cells" AttributeType="Scalar" Center="Cell">
+        <DataItem Dimensions="1959645 1" Format="HDF">SimulationZone.h5:/MeshTags/SPT100_Simulation_Zone_cells/Values</DataItem>
+      </Attribute>
+    </Grid>
+    <Grid Name="SPT100_Simulation_Zone_facets" GridType="Uniform">
+      <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@Name='SPT100_Simulation_Zone']/Geometry)" />
+      <Topology TopologyType="Triangle" NumberOfElements="87066" NodesPerElement="3">
+        <DataItem Dimensions="87066 3" NumberType="Int" Format="HDF">SimulationZone.h5:/MeshTags/SPT100_Simulation_Zone_facets/topology</DataItem>
+      </Topology>
+      <Attribute Name="SPT100_Simulation_Zone_facets" AttributeType="Scalar" Center="Cell">
+        <DataItem Dimensions="87066 1" Format="HDF">SimulationZone.h5:/MeshTags/SPT100_Simulation_Zone_facets/Values</DataItem>
+      </Attribute>
+    </Grid>
+  </Domain>
+</Xdmf>

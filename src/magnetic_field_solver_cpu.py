@@ -5,7 +5,12 @@ from tqdm import tqdm
 import matplotlib.colors as colors
 from scipy.interpolate import griddata
 
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+import matplotlib.pyplot as plt
+
 from project_paths import data_file
+import pyvista as pv
+
 
 class B_Field():
     def __init__(self, nSteps=5000, L=0.02, Rin=0.028, Rext=0.05, N=200, I=4.5):
@@ -18,7 +23,6 @@ class B_Field():
         self.Rext = Rext #[m] -> Radio externo
         self.N = N  #[1] -> Numero de vueltas del solenoide
         self.I = I #[A] -> Corriente en los solenoides
-
         self.muo = (4e-7)*np.pi #[(T*m)/A] -> Constante de permiabilidad del vacio
 
         #___________________________________________________________________________________________
@@ -139,41 +143,56 @@ class B_Field():
 
         #___________________________________________________________________________________________
 
-    def Solenoid_points_plot(self, Solenoid_inner=True, Solenoid_1=True, Solenoid_2=True, Solenoid_3=True, Solenoid_4=True, Cylinder_ext=True):
+    def Solenoid_points_plot_pyvista(self, Solenoid_inner=True, Solenoid_1=True, Solenoid_2=True, Solenoid_3=True, Solenoid_4=True, Cylinder_ext=True, plotter=None):
+        """
+        Visualiza los puntos de los solenoides y el cilindro externo usando PyVista.
+        Si se pasa un plotter, lo usa (útil para QtInteractor); si no, crea uno temporal.
+        """
+        # Usar plotter existente si se pasa (por ejemplo, QtInteractor), o crear uno nuevo
+        created_local_plotter = False
+        if plotter is None:
+            plotter = pv.Plotter()
+            created_local_plotter = True
 
-        fig = plt.figure()
-        ax = plt.axes(projection='3d')
+        # Puntos de cada solenoide
+        if Solenoid_inner:
+            plotter.add_points(self.S_Inner, color='black', point_size=8, render_points_as_spheres=True, label="Inner")
+        if Solenoid_1:
+            plotter.add_points(self.S1, color='red', point_size=8, render_points_as_spheres=True, label="S1")
+        if Solenoid_2:
+            plotter.add_points(self.S2, color='blue', point_size=8, render_points_as_spheres=True, label="S2")
+        if Solenoid_3:
+            plotter.add_points(self.S3, color='green', point_size=8, render_points_as_spheres=True, label="S3")
+        if Solenoid_4:
+            plotter.add_points(self.S4, color='orange', point_size=8, render_points_as_spheres=True, label="S4")
 
-        if Solenoid_inner == True:
-            ax.scatter(self.S_Inner[:,0], self.S_Inner[:,1], self.S_Inner[:,2], "black")
-        if Solenoid_1 == True:
-            ax.scatter(self.S1[:,0], self.S1[:,1], self.S1[:,2], "black")
-        if Solenoid_2 == True:
-            ax.scatter(self.S2[:,0], self.S2[:,1], self.S2[:,2], "black")
-        if Solenoid_3 == True:
-            ax.scatter(self.S3[:,0], self.S3[:,1], self.S3[:,2], "black")
-        if Solenoid_4 == True:
-            ax.scatter(self.S4[:,0], self.S4[:,1], self.S4[:,2], "black")
-        if Cylinder_ext == True:
-            # Crear la malla de puntos
-            theta = np.linspace(0, 2 * np.pi, 100)  # Ángulo para la circunferencia
-            z = np.linspace(0, self.L, 50)               # Longitud del cilindro
-            theta, z = np.meshgrid(theta, z)         # Crear una malla de ángulos y alturas
+        # Cilindro externo
+        if Cylinder_ext:
+            # PyVista Cylinder: el eje va de [0,0,0] a [0,0,self.L]
+            cyl = pv.Cylinder(
+                center=(0,0,self.L/2),
+                direction=(0,0,1),
+                radius=self.Rext,
+                height=self.L,
+                resolution=100
+            )
+            plotter.add_mesh(cyl, color='gray', opacity=0.4, style='surface', label="Cilindro exterior")
 
-            # Convertir coordenadas cilíndricas a cartesianas
-            x = self.Rext * np.cos(theta)
-            y = self.Rext * np.sin(theta)
+        # Ejes
+        plotter.set_background('white')
+        plotter.add_axes(line_width=2, color='black')
+        plotter.show_grid()
 
-            ax.plot_surface(x, y, z, color='black', alpha=0.7)
-
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
-        ax.set_zlabel("z")
-        ax.set_aspect('equal')
-
-        plt.show()
+        if created_local_plotter:
+            plotter.show(title="Solenoid Points 3D (PyVista)", auto_close=True)
+            return plotter
+        else:
+            # Si usas QtInteractor, simplemente el método termina aquí.
+            return
 
     def B_Field_Heatmap(self, Solenoid_Center=False, All_Solenoids=False, XY=False, ZX=False, Plane_Value=0.0, resolution=100):
+        print("[DEBUG] Entrando a B_Field_Heatmap con", XY, ZX, Solenoid_Center, All_Solenoids)
+        fig, ax = plt.subplots(figsize=(10, 8))
         if XY:
             # 1. Crear malla estructurada en XY
             xi = np.linspace(-1.5 * self.Rext, 1.5 * self.Rext, resolution)
@@ -292,11 +311,13 @@ class B_Field():
             ax.add_patch(rect_sup)
             ax.add_patch(rect_inf)
             ax.add_patch(rect_inner)
-
         plt.tight_layout()
+        return fig, ax
         plt.show()
 
     def B_Field_Lines(self, Solenoid_Center=False, All_Solenoids=False, XY=False, ZX=False, Plane_Value=0.0, resolution=100):
+        print("[DEBUG] Entrando a B_Field_Lines con", XY, ZX, Solenoid_Center, All_Solenoids)
+        fig, ax = plt.subplots(figsize=(10, 8))
         if XY:
             # 1. Crear malla estructurada en XY
             xi = np.linspace(-1.5 * self.Rext, 1.5 * self.Rext, resolution)
@@ -397,6 +418,7 @@ class B_Field():
             ax.add_patch(rect_inner)
 
         plt.tight_layout()
+        return fig, ax
         plt.show()
 
     def Save_B_Field(self, B, S):
@@ -430,11 +452,11 @@ if __name__ == "__main__":
 
     # 3. Calcular el campo magnetico total producido por los 5 solenoides
 
-    #B_value = B_field.Magnetic_Field(S=spatial_coords, S_solenoid=B_field.S_Inner)
+    B_value = B_field.Magnetic_Field(S=spatial_coords, S_solenoid=B_field.S_Inner)
     B_value = B_field.Total_Magnetic_Field(S=spatial_coords)
 
-    #B_field.B_Field_Lines(ZX=True, Plane_Value=0.0, All_Solenoids=True, Solenoid_Center=True)
-    #B_field.B_Field_Heatmap(XY=True, ZX=False, Plane_Value=0.01, Solenoid_Center=True, All_Solenoids=True)
+    B_field.B_Field_Lines(ZX=True, Plane_Value=0.0, All_Solenoids=True, Solenoid_Center=True)
+    B_field.B_Field_Heatmap(XY=True, ZX=False, Plane_Value=0.01, Solenoid_Center=True, All_Solenoids=True)
 
     # 4. Guardar en el archivo el campo magnetico encontrado
 
@@ -442,6 +464,9 @@ if __name__ == "__main__":
 
     # 5.Diferentes opciones de plot para el usuario(Opcional)
 
-    #B_field.color_map_B(S=spatial_coords, XY=True, Plane_Value=0.01, num_contorn=10, resolution=400, Solenoid_Center=True)
+    # B_field.color_map_B(S=spatial_coords, XY=True, Plane_Value=0.01, num_contorn=10, resolution=400, Solenoid_Center=True)
 
-    #B_field.Solenoid_points_plot(Solenoid_1=True, Solenoid_2=True, Solenoid_3=True, Solenoid_4=True)S_evalself.
+    # B_field.Solenoid_points_plot(Solenoid_1=True, Solenoid_2=True, Solenoid_3=True, Solenoid_4=True)
+    B_field.Solenoid_points_plot_pyvista(
+        Solenoid_1=True, Solenoid_2=True, Solenoid_3=True, Solenoid_4=True
+    )

@@ -134,7 +134,7 @@ class ElectronDensityModel:
 
     def plot_density(self, bool_3D=True, bool_XY_Plane=False, bool_XZ_plane=False):
         if bool_3D:
-            E_np = np.load(data_file('Electric_Field_np.npy'))
+            E_np = np.load(data_file('E_Field_Laplace.npy'))
             points = E_np[:, :3]
             n0 = np.load(data_file('density_n0.npy'))
             n0_log = np.log10(n0)
@@ -152,8 +152,8 @@ class ElectronDensityModel:
             else:
                 use_show = False  # Es un QtInteractor
 
-            self.plotter.set_background("black")
-            self.plotter.add_axes(color="white")
+            self.plotter.set_background("white")
+            self.plotter.add_axes(color="black")
             try:
                 self.plotter.add_mesh(
                     mesh,
@@ -164,7 +164,7 @@ class ElectronDensityModel:
                     render_points_as_spheres=True,
                     scalar_bar_args={
                         'title': "ne [m⁻³] (log₁₀)\n",
-                        'color': 'white',
+                        'color': 'black',
                         'fmt': "%.1f",
                     }
                 )
@@ -194,8 +194,11 @@ if __name__ == "__main__":
     with io.XDMFFile(MPI.COMM_WORLD, data_file("SimulationZone.xdmf"), "r") as xdmf:
         domain = xdmf.read_mesh(name="SPT100_Simulation_Zone")
 
-
     model = ElectronDensityModel(domain)
-    model.generate_density()
-    model.save_density()
-    model.plot_density(bool_3D=True, bool_XY_Plane=False, bool_XZ_plane=False)
+    # model.generate_density()
+    # model.save_density()
+    # model.plot_density(bool_3D=True, bool_XY_Plane=False, bool_XZ_plane=False)
+    model.plot_density_XY(r0=0.04, sigma_r=0.007, A=1.2e15, z_min=-0.004, k=2, theta=0.012,
+                        z_plane=0.01, x_range=(-0.1, 0.1), y_range=(-0.1, 0.1),
+                        resolution=5000, Rin=0.028, Rex=0.05)
+

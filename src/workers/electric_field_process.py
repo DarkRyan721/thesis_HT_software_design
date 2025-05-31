@@ -1,45 +1,60 @@
-# run_solver.py
+import io
+import os
 import sys
-import json
-import traceback
 
-print("[DEBUG] Lanzando run_solver.py...")
-print(f"[DEBUG] sys.argv: {sys.argv}")
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
+
+from electron_density_model import ElectronDensityModel
+import traceback
+from electric_field_solver import ElectricFieldSolver
+from project_paths import data_file
+from dolfinx import fem, io
+from mpi4py import MPI
 
 try:
-    input_file = sys.argv[1]
-    output_file = sys.argv[2]
-    print(f"[DEBUG] Leyendo parámetros desde: {input_file}")
+    if len(sys.argv) < 3:
+        raise ValueError("Uso: run_solver.py <volt> <volt_cath> ")
 
-    with open(input_file, 'r') as f:
-        params = json.load(f)
-    print(f"[DEBUG] Parámetros recibidos: {params}")
-
-    from electric_field_solver import ElectricFieldSolver
+    volt = float(sys.argv[1])
+    volt_cath = float(sys.argv[2])
 
     solver = ElectricFieldSolver()
-    if params.get("validate_density", False):
-        print("[DEBUG] Resolviendo Poisson...")
-        source_term = solver.load_density_from_npy()
-        _, E = solver.solve_poisson(
-            source_term=source_term,
-            Volt=params["voltage"],
-            Volt_cath=params["voltage_cathode"]
-        )
-    else:
-        print("[DEBUG] Resolviendo Laplace...")
-        _, E = solver.solve_laplace(
-            Volt=params["voltage"],
-            Volt_cath=params["voltage_cathode"]
-        )
-    print(f"[DEBUG] Guardando resultado en: {output_file}")
-    solver.save_electric_field_numpy(E, filename=output_file)
-    print(f"[DEBUG] run_solver.py terminó exitosamente.")
+
+        # --- LAPLACE ---
+    print("[DEBUG] Resolviendo Laplace...")
+    _, E_laplace = solver.solve_laplace(
+        Volt=volt,
+        Volt_cath=volt_cath
+    )
+    output_file_laplace = data_file("E_Field_Laplace.npy")
+    solver.save_electric_field_numpy(E_laplace, filename=output_file_laplace)
+    print(f"[DEBUG] Guardado Laplace en: {output_file_laplace}")
+
+    with io.XDMFFile(MPI.COMM_WORLD, data_file("SimulationZone.xdmf"), "r") as xdmf:
+        domain = xdmf.read_mesh(name="SPT100_Simulation_Zone")
+
+    model = ElectronDensityModel(domain)
+    model.generate_density()
+    model.save_density()
+
+    # --- POISSON ---
+    print("[DEBUG] Resolviendo Poisson...")
+    source_term = solver.load_density_from_npy()
+    _, E_poisson = solver.solve_poisson(
+        source_term=source_term,
+        Volt=volt,
+        Volt_cath=volt_cath
+    )
+    output_file_poisson = data_file("E_Field_Poisson.npy")
+    solver.save_electric_field_numpy(E_poisson, filename=output_file_poisson)
+    print(f"[DEBUG] Guardado Poisson en: {output_file_poisson}")
+
+
+    print("[DEBUG] run_solver.py terminó exitosamente.")
 
 except Exception as e:
-    print("[ERROR] electric_field_process.py falló:")
+    print("[ERROR] run_solver.py falló:")
     traceback.print_exc()
-    # Opcional: escribe un archivo de error
     with open("electric_field_process_error.log", "w") as ferr:
         ferr.write(traceback.format_exc())
     sys.exit(1)

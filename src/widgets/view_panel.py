@@ -35,13 +35,11 @@ class ViewPanel(QFrame):
             "mesh": self.main_window.home_panel.home_viewer,
             "field": self.main_window.field_panel.field_viewer,
             "magnetic": self.main_window.magnetic_panel.magnetic_viewer,
-            "density": self.main_window.density_panel.density_viewer,
             "simulation": self.main_window.simulation_panel.simulation_viewer
-
         }
 
-        # Añadir viewers al stack
         for viewer in self.viewers.values():
+            print(viewer)
             self.view_stack.addWidget(viewer)
 
         self.current_data = None  # Útil para referenciar luego
@@ -80,3 +78,11 @@ class ViewPanel(QFrame):
 
     # def update_magnetic_viewer(self, field):
     #     self.update_viewer(field, viewer_name="magnetic")
+
+    def add_viewer(self, name, widget):
+        if name in self.viewers:
+            # Si ya existe un viewer con ese nombre, quítalo primero
+            self.view_stack.removeWidget(self.viewers[name])
+            del self.viewers[name]
+        self.viewers[name] = widget
+        self.view_stack.addWidget(widget)

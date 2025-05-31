@@ -23,8 +23,7 @@ import gmsh
 from electric_field_solver import ElectricFieldSolver
 from mesh_generator import HallThrusterMesh
 from widgets.panels.simulation_options import SimulationOptionsPanel
-from widgets.panels.density_options import DensityOptionsPanel
-from widgets.panels.magnetic_options import MagneticOptionsPanel
+from widgets.panels.magnetic_field.magnetic_options import MagneticOptionsPanel
 from widgets.panels.field_options import FieldOptionsPanel
 from gui_styles.stylesheets import *
 from widgets.parameter_views import ParameterPanel
@@ -35,26 +34,25 @@ from models.simulation_state import SimulationState
 from widgets.panels.home_options import HomeOptionsPanel
 from PySide6.QtWidgets import QProgressDialog
 from PySide6.QtCore import QThread, Signal, QObject, Qt
+from PySide6.QtGui import QGuiApplication
 
 class MainWindow(QtW.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("HET simulator")
-        self.setMinimumSize(800,400)
-        self.resize(800,400)
+        screen_size = QGuiApplication.primaryScreen().availableGeometry().size()
+        w, h = screen_size.width(), screen_size.height()
+        self.setMinimumSize(int(w * 0.8), int(h * 0.8))
+        self.resize(int(w * 0.95), int(h * 0.8))
 
         self.simulation_state = SimulationState()
         self.home_panel = HomeOptionsPanel(self)
-        print("panel 1")
         self.field_panel = FieldOptionsPanel(self)
         self.magnetic_panel = MagneticOptionsPanel(self)
-        self.density_panel = DensityOptionsPanel(self)
         self.simulation_panel = SimulationOptionsPanel(self)
         self._setup_ui()
-        self.frame.addWidget(self.Options, stretch=0.3)
-        self.frame.addWidget(self.Parameters, stretch=1)
-        self.frame.addWidget(self.View_Part.view_stack, stretch=2)
         self.setStyleSheet(self_Style())
+        self.View_Part.add_viewer("magnetic", self.magnetic_panel.magnetic_viewer)
 
     def _setup_ui(self):
         #_____________________________________________________________________________________________
@@ -74,9 +72,9 @@ class MainWindow(QtW.QMainWindow):
         self.parameters_view = self.Parameters.parameters_view
         self.set_active_button(self.Options.tab_buttons[0])
 
-        self.frame.addWidget(self.Parameters, stretch=1)
         self.frame.addWidget(self.Options, stretch=0.3)
-        self.frame.addWidget(self.View_Part.view_stack, stretch=2)
+        self.frame.addWidget(self.Parameters, stretch=1)
+        self.frame.addWidget(self.View_Part.view_stack, stretch=4)
 
         #_____________________________________________________________________________________________
         #                   Añadiendo las configuraciones al frame base y frame principal
@@ -105,8 +103,6 @@ class MainWindow(QtW.QMainWindow):
         elif index == 2:
             self.View_Part.switch_view("magnetic")
         elif index == 3:
-            self.View_Part.switch_view("density")
-        elif index == 4:
             self.View_Part.switch_view("simulation")
 
     def set_active_button(self, active_btn):
@@ -119,9 +115,7 @@ class MainWindow(QtW.QMainWindow):
     def launch_worker(self, worker, finished_callback):
         thread = QThread()
         worker.moveToThread(thread)
-
         print(f"🚀 Lanzando worker en modo: {worker.mode}")
-
         # ──────────────────────────────
         # Conexiones
         thread.started.connect(worker.run)
@@ -138,6 +132,8 @@ class MainWindow(QtW.QMainWindow):
 
         # ──────────────────────────────
         thread.start()
+
+
 
 
 
