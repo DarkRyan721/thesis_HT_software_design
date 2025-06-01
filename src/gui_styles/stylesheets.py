@@ -188,3 +188,30 @@ def checkbox_parameters_style():
         border: 1px solid #555;
     }
     """
+
+def advanced_toggle_style():
+    return """
+            QPushButton {
+                background-color: #18191a;
+                color: #f5f5f5;
+                border: none;
+                font-weight: bold;
+                text-align: left;
+                padding: 8px;
+                border-radius: 3px;
+            }
+            QPushButton:checked {
+                background-color: #23272b;
+                color: #f5f5f5;
+            }
+    """
+
+def advanced_content_style():
+    return """
+            QFrame {
+                background-color: #23272b;
+                color: #f5f5f5;
+                border-radius: 3px;
+                padding: 8px;
+            }
+    """

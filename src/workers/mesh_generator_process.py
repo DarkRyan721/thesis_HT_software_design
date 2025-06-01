@@ -17,6 +17,8 @@ try:
     R_big = float(sys.argv[2])
     R_small = float(sys.argv[3])
     refinement_level = sys.argv[4]
+    min_physical_scale = float(sys.argv[5]) if sys.argv[5] else None
+    max_elements = float(sys.argv[6]) if sys.argv[6] else None
 
     mesh = HallThrusterMesh(
         R_big=R_big,

@@ -34,7 +34,7 @@ from PySide6.QtCore import Qt
 import PySide6.QtWidgets as QtW
 
 from utils.ui_helpers import _input_with_unit
-from gui_styles.stylesheets import button_parameters_style
+from gui_styles.stylesheets import *
 # TODO: Importar el solver y el loader apropiados para el campo magnético
 # from E_field_solver import MagneticFieldSolver
 # from utils.magnetic_loader import MagneticLoaderWorker
@@ -122,48 +122,6 @@ class MagneticOptionsPanel(QWidget):
         layout.addWidget(self.heatmap_controls)
 
 
-        # --- Opciones avanzadas desplegables ---
-        advanced_toggle = QPushButton("Opciones Avanzadas")
-        advanced_toggle.setCheckable(True)
-        advanced_toggle.setChecked(False)
-        advanced_toggle.setStyleSheet("""
-            QPushButton {
-                background-color: #18191a;
-                color: #f5f5f5;
-                border: none;
-                font-weight: bold;
-                text-align: left;
-                padding: 8px;
-                border-radius: 3px;
-            }
-            QPushButton:checked {
-                background-color: #23272b;
-                color: #f5f5f5;
-            }
-        """)
-
-        advanced_content = QFrame()
-        advanced_content.setVisible(False)
-        advanced_content.setStyleSheet("""
-            QFrame {
-                background-color: #23272b;
-                color: #f5f5f5;
-                border-radius: 3px;
-                padding: 8px;
-            }
-        """)
-        advanced_content_layout = QVBoxLayout(advanced_content)
-        advanced_content_layout.addWidget(QLabel("Opciones avanzadas (label interno)"))
-
-        def toggle_advanced():
-            advanced_content.setVisible(advanced_toggle.isChecked())
-
-        advanced_toggle.clicked.connect(toggle_advanced)
-
-        # --- Añade estos widgets a tu layout principal ---
-        layout.addWidget(advanced_toggle)
-        layout.addWidget(advanced_content)
-
         # Estira para ocupar espacio
         layout.addStretch()
 
@@ -171,11 +129,23 @@ class MagneticOptionsPanel(QWidget):
         self._load_initial_magnetic_if_exists()
 
     def on_update_clicked_Magnetic_field(self):
-        self.show_viewer3d()
-        nSteps = int(self.input_nSteps.text())
-        N_turns = int(self.input_N.text())
-        I = float(self.input_i.text())
+        # Recolecta campos obligatorios y avanzados
+        campos = {
+            "nSteps": self.input_nSteps.text(),
+            "N_turns": self.input_N.text(),
+            "I": self.input_i.text(),
+        }
 
+        try:
+            valores = self.validar_numeros(campos)
+        except ValueError as e:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Error de validación", str(e))
+            return
+
+        nSteps = int(valores["nSteps"])
+        N_turns = int(valores["N_turns"])
+        I = valores["I"]
         self.simulation_state.nSteps = nSteps
         self.simulation_state.N_turns = N_turns
         self.simulation_state.I = I
@@ -185,7 +155,7 @@ class MagneticOptionsPanel(QWidget):
         if regenerate:
             print("🔄 Parámetros magnéticos cambiaron:", new_params)
             self.simulation_state.prev_params_magnetic = new_params
-            self.run_bfield_external(new_params[0], new_params[1], new_params[2])
+            self.run_bfield_external(nSteps, N_turns, I)
         else:
             worker = LoaderWorker(mode="magnetic", params=new_params)
             self.main_window.launch_worker(worker, self.on_magnetic_loaded)
@@ -193,11 +163,37 @@ class MagneticOptionsPanel(QWidget):
 
         self.simulation_state.print_state()
 
+    def validar_numeros(self, campos, opcionales=None):
+        """
+        Valida que los valores de entrada sean numéricos y no vacíos,
+        excepto los opcionales, que pueden ser vacíos o 'None' y se asignan como None.
+        """
+        if opcionales is None:
+            opcionales = set()
+        else:
+            opcionales = set(opcionales)
+
+        resultados = {}
+        for nombre, texto in campos.items():
+            texto = str(texto).strip()
+            if not texto or texto.lower() == "none":
+                if nombre in opcionales:
+                    resultados[nombre] = None
+                    continue
+                else:
+                    raise ValueError(f"El campo '{nombre}' es obligatorio y está vacío.")
+            try:
+                valor = float(texto)
+            except ValueError:
+                raise ValueError(f"El campo '{nombre}' debe ser un número válido. Valor recibido: '{texto}'")
+            resultados[nombre] = valor
+        return resultados
+
     def run_bfield_external(self, nSteps, N_turns, I):
         script_path = worker("magnetic_field_process.py")
         args = [
             "python3", script_path,
-            str(nSteps), str(N_turns), str(I)
+            str(nSteps), str(N_turns), str(I),
         ]
         self.process = subprocess.Popen(args)
         self.magnetic_start_time = time.perf_counter()
@@ -232,14 +228,14 @@ class MagneticOptionsPanel(QWidget):
     def visualize_magnetic(self, data):
         self.magnetic_viewer.clear()
         streamlines = data.streamlines(data, )
-        self.magnetic_viewer.add_mesh(data, scalars="magnitude", cmap="viridis",scalar_bar_args={"title": "|B| [T]"})  
+        self.magnetic_viewer.add_mesh(data, scalars="magnitude", cmap="viridis",scalar_bar_args={"title": "|B| [T]"})
         self.magnetic_viewer.reset_camera()
         self.magnetic_viewer.view_yx()
 
     def _create_viewer(self):
         viewer = QtInteractor()
-        viewer.set_background("gray")
-        viewer.setStyleSheet("background-color: #131313; border-radius: 5px;")
+        viewer.set_background("white")
+        viewer.setStyleSheet("background-color: white; border-radius: 5px;")
         viewer.add_axes(interactive=False)
         viewer.setSizePolicy(QtW.QSizePolicy.Expanding, QtW.QSizePolicy.Expanding)
         viewer.view_zx()
@@ -456,7 +452,7 @@ class MagneticOptionsPanel(QWidget):
             self.generate_magnetic_image( mode, nSteps, N_turns, I, params, output_path)
         # Ahora muestra la imagen
         self._show_image_in_panel(output_path, "magnetic_heatmap")
-    
+
     def _show_field_lines_viewer(self):
         print("[DEBUG] Mostrando Field Lines Viewer")
         self.visualization_selector.setCurrentText("Field Lines")

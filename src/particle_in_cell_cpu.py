@@ -158,10 +158,10 @@ class PIC():
 
 if __name__ == "__main__":
     N = 1000
-    dt = 0.00000004
-    q_m = 7.35e5
-    alpha = 0.9
     frames = 500
+    q_m = 7.35e5
+    dt = 0.00000004
+    alpha = 0.9
     sigma_ion = 1e-11
 
     # def leer_datos_archivo(ruta_archivo):

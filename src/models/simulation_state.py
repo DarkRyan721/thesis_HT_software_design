@@ -14,14 +14,23 @@ class SimulationState:
         self.frames = 500
 
 
-
-        self.prev_params_mesh = (None, None, None, None)
+        self.prev_params_mesh = (None, None, None, None, None)
         self.prev_params_field = (self.voltage, self.voltage_cathode)
         self.prev_params_magnetic = (None, None, None)
         self.prev_params_simulation = (None, None)
+
+        self.min_physics_scale = None
+        self.max_elements = None
+
+        self.chunk_size = None
+
+        self.alpha = None
+        self.sigma_ion = None
+        self.dt = None
 
 
     def print_state(self):
         print(f"SimulationState(H={self.H}, R_big={self.R_big}, R_small={self.R_small}, "
               f"voltage={self.voltage}, voltage_cathode={self.voltage_cathode}, "
               f"nSteps={self.nSteps}, N={self.N_turns}, I={self.I})")
+

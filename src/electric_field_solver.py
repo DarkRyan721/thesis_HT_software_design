@@ -257,33 +257,33 @@ if __name__ == "__main__":
     solver = ElectricFieldSolver()
     print("\n✅ Mesh loaded successfully!")
 
-    # # Solve Laplace equation
-    # Volt_input = 300
-    # print("\n⚡ Solving Laplace equation...")
-    # t_laplace_start = time.perf_counter()
-    # phi_laplace, E_laplace = solver.solve_laplace(Volt=Volt_input)
-    # solver.save_electric_field_numpy(E_laplace, filename="E_Field_Laplace.npy")
-    # t_laplace_end = time.perf_counter()
-    # print(f"✅ Laplace solution completed in {t_laplace_end - t_laplace_start:.2f} s.")
+    # Solve Laplace equation
+    Volt_input = 300
+    print("\n⚡ Solving Laplace equation...")
+    t_laplace_start = time.perf_counter()
+    phi_laplace, E_laplace = solver.solve_laplace(Volt=Volt_input)
+    solver.save_electric_field_numpy(E_laplace, filename="E_Field_Laplace.npy")
+    t_laplace_end = time.perf_counter()
+    print(f"✅ Laplace solution completed in {t_laplace_end - t_laplace_start:.2f} s.")
 
-    # # Solve Poisson equation
-    # print("\n🧪 Solving Poisson equation...")
-    # t_poisson_start = time.perf_counter()
-    # source_term = solver.load_density_from_npy()
-    # phi_poisson, E_poisson = solver.solve_poisson(source_term=source_term)
-    # solver.save_electric_field_numpy(E_poisson, filename="E_Field_Poisson.npy")
-    # t_poisson_end = time.perf_counter()
-    # print(f"✅ Poisson solution completed in {t_poisson_end - t_poisson_start:.2f} s.")
+    # Solve Poisson equation
+    print("\n🧪 Solving Poisson equation...")
+    t_poisson_start = time.perf_counter()
+    source_term = solver.load_density_from_npy()
+    phi_poisson, E_poisson = solver.solve_poisson(source_term=source_term)
+    solver.save_electric_field_numpy(E_poisson, filename="E_Field_Poisson.npy")
+    t_poisson_end = time.perf_counter()
+    print(f"✅ Poisson solution completed in {t_poisson_end - t_poisson_start:.2f} s.")
 
-    # # Plotting
-    # print("\n🎨 Plotting the electric field from Laplace solution...")
-    # t_plot_start = time.perf_counter()
-    # solver.plot_E_Field(filename="Electric_Field_np.npy")
-    # t_plot_end = time.perf_counter()
-    # print(f"✅ Plot completed in {t_plot_end - t_plot_start:.2f} s.")
+    # Plotting
+    print("\n🎨 Plotting the electric field from Laplace solution...")
+    t_plot_start = time.perf_counter()
+    solver.plot_E_Field(filename="Electric_Field_np.npy")
+    t_plot_end = time.perf_counter()
+    print(f"✅ Plot completed in {t_plot_end - t_plot_start:.2f} s.")
 
-    # t_total_end = time.perf_counter()
-    # print(f"\n🧾 Total execution time: {t_total_end - t_total_start:.2f} s.")
-    # print("🏁 Test Completed Successfully!")
+    t_total_end = time.perf_counter()
+    print(f"\n🧾 Total execution time: {t_total_end - t_total_start:.2f} s.")
+    print("🏁 Test Completed Successfully!")
 
 

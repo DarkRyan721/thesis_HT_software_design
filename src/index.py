@@ -179,7 +179,7 @@ def plot_field_ZX_full_with_arrows(
         chamber_length=0.025,
         sigma=3,
         arrow_step=5,           # Submuestreo normal
-        arrow_step_channel=20,   # Submuestreo canal
+        arrow_step_channel=30,   # Submuestreo canal
         angulo_max_deg=0.5        # Ángulo máximo para considerar "paralelo a Z"
     ):
     import numpy as np
@@ -231,7 +231,7 @@ def plot_field_ZX_full_with_arrows(
     vmax = np.nanpercentile(vals_valid, 98) if vals_valid.size > 0 else 10
 
     norm = mcolors.LogNorm(vmin=max(vmin, 1e-3), vmax=vmax)
-    cmap = plt.get_cmap('hot').copy()
+    cmap = plt.get_cmap('gray').copy()
     cmap.set_under('black')
 
     fig, ax = plt.subplots(figsize=(10, 8))
@@ -288,10 +288,11 @@ def plot_field_ZX_full_with_arrows(
     mask_paralelas = (Uc_norm > 0.2) & (theta < angulo_max) & mask_canal
     # (Uc_norm > 0.2) asegura que la componente Z sea suficientemente dominante
 
+    # Chanell
     ax.quiver(
         Xc[mask_paralelas], Yc[mask_paralelas],
         Uc_norm[mask_paralelas], Vc_norm[mask_paralelas],
-        color='magenta', scale=20, alpha=0.95, width=0.009, zorder=3
+        color='black', scale=20, alpha=0.95, width=0.005, zorder=3
     )
 
     ax.set_title("Campo eléctrico sobre ZX (flechas densas y paralelas a +Z en canal)")
@@ -300,7 +301,7 @@ def plot_field_ZX_full_with_arrows(
     fig.tight_layout()
     plt.show()
 
-campo = np.load('data_files/E_Field_Poisson.npy')
+campo = np.load('data_files/E_Field_Laplace.npy')
 plot_field_ZX_full_with_arrows(
         campo,
         x_range=(-0.10, 0.10),
@@ -313,13 +314,13 @@ plot_field_ZX_full_with_arrows(
     )
 
 
-plot_field_ZX_full(
-    campo,
-    x_range=(-0.10, 0.10),
-    z_range=(0.0, 0.22),
-    resolution=1000,
-    Rin=0.028,
-    Rex=0.05,
-    chamber_length=0.025,
-    sigma=100  # Prueba valores entre 2 y 6 según la "suavidad" deseada
-)
+# plot_field_ZX_full(
+#     campo,
+#     x_range=(-0.10, 0.10),
+#     z_range=(0.0, 0.22),
+#     resolution=1000,
+#     Rin=0.028,
+#     Rex=0.05,
+#     chamber_length=0.025,
+#     sigma=100  # Prueba valores entre 2 y 6 según la "suavidad" deseada
+# )

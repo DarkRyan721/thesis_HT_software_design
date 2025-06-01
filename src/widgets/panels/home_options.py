@@ -83,25 +83,6 @@ class HomeOptionsPanel(QWidget):
         style_layout.addWidget(QLabel("Render Mode"))
         style_layout.addWidget(self.combo_render_mode)
 
-        self.opacity_slider = QSlider(Qt.Horizontal)
-        self.opacity_slider.setRange(0, 100)
-        self.opacity_slider.setValue(100)
-        style_layout.addWidget(QLabel("Opacity"))
-        style_layout.addWidget(self.opacity_slider)
-
-        apply_btn = QPushButton("Apply Style")
-        apply_btn.setStyleSheet(button_parameters_style())
-        apply_btn.clicked.connect(lambda: self._apply_visual_style_home(self.displayed_mesh))
-
-        style_layout.addWidget(apply_btn)
-        layout.addWidget(style_box)
-
-        view_box = QGroupBox("View")
-        view_layout = QVBoxLayout(view_box)
-
-        # Fila horizontal para ambos combobox
-        combo_layout = QHBoxLayout()
-
         self.view_combo = QComboBox()
         self.view_combo.addItems(["Isometric", "XY", "XZ", "YZ"])
         self.view_combo.setStyleSheet(box_render_style())
@@ -113,54 +94,51 @@ class HomeOptionsPanel(QWidget):
         self.combo.currentTextChanged.connect(self.switch_dataset)
 
         # Añadir ambos combos al layout horizontal
+        combo_layout = QHBoxLayout()
         combo_layout.addWidget(QLabel("View Mode:"))  # Etiqueta opcional
         combo_layout.addWidget(self.view_combo)
         combo_layout.addWidget(QLabel("Display:"))    # Otra etiqueta opcional, o elimínala si no la quieres
         combo_layout.addWidget(self.combo)
 
-        view_layout.addLayout(combo_layout)  # Añade el layout horizontal al vertical del view_box
+        style_layout.addLayout(combo_layout)  # Añade el layout horizontal al vertical del view_box
 
-        layout.addWidget(view_box)
+        apply_btn = QPushButton("Apply Style")
+        apply_btn.setStyleSheet(button_parameters_style())
+        apply_btn.clicked.connect(lambda: self._apply_visual_style_home(self.displayed_mesh))
+
+        style_layout.addWidget(apply_btn)
+        layout.addWidget(style_box)
+
+        # Fila horizontal para ambos combobox
+
 
         # --- Opciones avanzadas desplegables ---
-        advanced_toggle = QPushButton("Opciones Avanzadas")
+        advanced_toggle = QPushButton("Opciones avanzadas")
         advanced_toggle.setCheckable(True)
         advanced_toggle.setChecked(False)
-        advanced_toggle.setStyleSheet("""
-            QPushButton {
-                background-color: #18191a;
-                color: #f5f5f5;
-                border: none;
-                font-weight: bold;
-                text-align: left;
-                padding: 8px;
-                border-radius: 3px;
-            }
-            QPushButton:checked {
-                background-color: #23272b;
-                color: #f5f5f5;
-            }
-        """)
+        advanced_toggle.setStyleSheet(advanced_toggle_style())
 
         advanced_content = QFrame()
         advanced_content.setVisible(False)
-        advanced_content.setStyleSheet("""
-            QFrame {
-                background-color: #23272b;
-                color: #f5f5f5;
-                border-radius: 3px;
-                padding: 8px;
-            }
-        """)
-        advanced_content_layout = QVBoxLayout(advanced_content)
-        advanced_content_layout.addWidget(QLabel("Opciones avanzadas (label interno)"))
+        advanced_content.setStyleSheet(advanced_content_style())
+
+        self.input_min_scale_container, self.input_min_scale = _input_with_unit(
+            str(self.simulation_state.min_physics_scale), "[m]"
+        )
+        self.input_max_elements_container, self.input_max_elements = _input_with_unit(
+            str(self.simulation_state.max_elements), ""
+        )
+        advanced_content_layout = QFormLayout(advanced_content)
+
+        # Campos de formulario para parámetros avanzados
+        advanced_content_layout.addRow("Minimum Physics Scale:", self.input_min_scale_container)
+        advanced_content_layout.addRow("Max Elements:", self.input_max_elements_container)
+
 
         def toggle_advanced():
             advanced_content.setVisible(advanced_toggle.isChecked())
 
         advanced_toggle.clicked.connect(toggle_advanced)
-
-        # --- Añade estos widgets a tu layout principal ---
         layout.addWidget(advanced_toggle)
         layout.addWidget(advanced_content)
 
@@ -181,7 +159,7 @@ class HomeOptionsPanel(QWidget):
 
     def _create_viewer(self):
         viewer = QtInteractor()
-        viewer.set_background("gray")
+        viewer.set_background("white")          # Fondo blanco
         viewer.setStyleSheet("background-color: #131313; border-radius: 5px;")
         viewer.add_axes(interactive=False)
         viewer.setSizePolicy(QtW.QSizePolicy.Expanding, QtW.QSizePolicy.Expanding)
@@ -203,7 +181,7 @@ class HomeOptionsPanel(QWidget):
         # self.home_viewer.renderer.RemoveAllLights()  # Elimina luces anteriores
         self.home_viewer.add_light(pv.Light(light_type='headlight'))  # Añadir luz frontal
         mode = self.combo_render_mode.currentText()
-        opacity = self.opacity_slider.value() / 100.0
+        opacity = 1
 
         common_kwargs = dict(
             opacity=opacity,
@@ -215,6 +193,7 @@ class HomeOptionsPanel(QWidget):
             specular_power=15,
             split_sharp_edges=True,  # Mejora la definición de aristas
             feature_angle=30,        # Ángulo para dividir aristas afiladas
+            line_width=1.5,
         )
 
         mode = self.combo_render_mode.currentText()
@@ -281,17 +260,42 @@ class HomeOptionsPanel(QWidget):
         self.home_viewer.reset_camera()
 
     def on_update_clicked_mesh(self):
-        H = float(self.input_H.text())
-        R_big = float(self.input_R_Big.text())
-        R_small = float(self.input_R_Small.text())
+        # Paso 1: Extrae los textos de los campos
+        campos = {
+            'H': self.input_H.text(),
+            'R_big': self.input_R_Big.text(),
+            'R_small': self.input_R_Small.text(),
+            'min_physical_scale': self.input_min_scale.text(),
+            'max_elements': self.input_max_elements.text(),
+        }
+
+        opcional = ['min_physical_scale', 'max_elements']
+
+        try:
+            valores = self.validar_numeros(campos, opcionales=opcional)
+        except ValueError as e:
+            from PySide6.QtWidgets import QMessageBox
+            print(str(e))
+            QMessageBox.critical(self, "Error de validación", str(e))
+            return
+
+        # Así puedes usarlos directamente:
+        H = valores['H']                  # Siempre float
+        R_big = valores['R_big']          # Siempre float
+        R_small = valores['R_small']      # Siempre float
+        min_physical_scale = valores['min_physical_scale']  # Puede ser float o None
+        max_elements = valores['max_elements']              # Puede ser float o None
 
         self.simulation_state.H = H
         self.simulation_state.R_big = R_big
         self.simulation_state.R_small = R_small
-        self.refinement_level= self.mesh_quality_box.currentText().lower()
+        self.refinement_level = self.mesh_quality_box.currentText().lower()
 
-        print(f"H = {H}, R = {R_big}, R = {R_small}")
-        new_params = (H, R_big, R_small, self.mesh_quality_box.currentText().lower())
+        print(f"H = {H}, R_big = {R_big}, R_small = {R_small}")
+        new_params = (
+            H, R_big, R_small, self.mesh_quality_box.currentText().lower(),
+            min_physical_scale, max_elements
+        )
 
         if new_params != self.simulation_state.prev_params_mesh:
             self.update_btn.setEnabled(False)
@@ -300,16 +304,44 @@ class HomeOptionsPanel(QWidget):
             print("🔄 ¡Parámetros cambiaron:", new_params)
             self.simulation_state.prev_params_mesh = new_params
             params = {
-            "H": H,
-            "R_Big": R_big,
-            "R_Small": R_small,
-            "refinement_level": self.refinement_level
+                "H": H,
+                "R_Big": R_big,
+                "R_Small": R_small,
+                "refinement_level": self.refinement_level,
+                "min_physical_scale": min_physical_scale,
+                "max_elements": max_elements
             }
             self.run_mesher_in_subprocess(self.on_mesh_loaded, params)
         else:
             print("⚠️ No se han realizado cambios en la malla.")
 
         self.simulation_state.print_state()
+
+    def validar_numeros(self, campos, opcionales=None):
+        """
+        Valida que los valores de entrada sean numéricos y no vacíos,
+        excepto los opcionales, que pueden ser vacíos o 'None' y se asignan como None.
+        """
+        if opcionales is None:
+            opcionales = set()
+        else:
+            opcionales = set(opcionales)
+
+        resultados = {}
+        for nombre, texto in campos.items():
+            texto = str(texto).strip()
+            if not texto or texto.lower() == "none":  # <-- Ajuste aquí
+                if nombre in opcionales:
+                    resultados[nombre] = None
+                    continue
+                else:
+                    raise ValueError(f"El campo '{nombre}' es obligatorio y está vacío.")
+            try:
+                valor = float(texto)
+            except ValueError:
+                raise ValueError(f"El campo '{nombre}' debe ser un número válido. Valor recibido: '{texto}'")
+            resultados[nombre] = valor
+        return resultados
 
     def on_mesh_loaded(self, data):
         print("[DEBUG] Callback on_mesh_loaded ejecutado")
@@ -339,12 +371,19 @@ class HomeOptionsPanel(QWidget):
         R_big = params["R_Big"]
         R_small = params["R_Small"]
         refinement_level = params["refinement_level"]
+        min_physical_scale = params["min_physical_scale"]
+        max_elements = params["max_elements"]
 
         # Guarda los parámetros de mallado en JSON
 
         args = [
             'python3', run_mesher_path,
-            str(H), str(R_big), str(R_small), refinement_level
+            str(H),
+            str(R_big),
+            str(R_small),
+            refinement_level,
+            "" if min_physical_scale is None else str(min_physical_scale),
+            "" if max_elements is None else str(max_elements),
         ]
 
         self.process = subprocess.Popen(args)
@@ -373,7 +412,6 @@ class HomeOptionsPanel(QWidget):
         self.timer.timeout.connect(lambda: check_output())
         self.timer.start(300)  # cada 300 ms
 
-
     def change_view(self, view):
         if view == "Isometric":
             self.home_viewer.view_isometric()
@@ -388,6 +426,7 @@ class HomeOptionsPanel(QWidget):
             self.home_viewer.view_xz()
         elif view == "YZ":
             self.home_viewer.view_yz()
+
 
     def switch_dataset(self, view_name):
 
@@ -411,8 +450,6 @@ class HomeOptionsPanel(QWidget):
         if not isinstance(mesh_to_show, pv.PolyData):
             print(f"❌ Error: mesh_to_show no es PolyData, es {type(mesh_to_show)}")
             return
+        
         self._apply_visual_style_home(mesh_to_show)
-
-
-
 

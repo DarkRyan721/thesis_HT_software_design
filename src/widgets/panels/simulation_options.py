@@ -41,172 +41,235 @@ class SimulationOptionsPanel(QWidget):
         self.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(self)
 
-        # ▓▓▓ Grupo de parámetros básicos
-        sim_box = QGroupBox("Parámetros de Simulación")
+        # Grupo: Parámetros básicos de simulación
+        sim_box = QGroupBox("🧮 Parámetros de Simulación")
         sim_box.setStyleSheet(box_render_style())
         sim_layout = QFormLayout()
 
-        self.input_N_particles_container, self.input_N_particles = _input_with_unit(str(self.simulation_state.N_particles), "[pasos]")
-        self.input_frames_container, self.input_frames = _input_with_unit(str(self.simulation_state.frames), "[A]")
+        lbl_n_particles = QLabel("Número de partículas (N):")
+        lbl_n_particles.setToolTip("Cantidad total de partículas simuladas en el dominio.")
+        self.input_N_particles_container, self.input_N_particles = _input_with_unit(
+            str(self.simulation_state.N_particles), "[#]"
+        )
 
-        self.simulation_viewer = QtInteractor(self)
-        self.simulation_instance = Simulation(plotter=self.simulation_viewer)
+        lbl_frames = QLabel("Frames de animación:")
+        lbl_frames.setToolTip("Número de pasos de simulación/frames visualizados.")
 
-        sim_layout.addRow("Número de particulas (N):", self.input_N_particles)
-        sim_layout.addRow("Frames (N):", self.input_frames)
+        self.input_frames_container, self.input_frames = _input_with_unit(
+            str(self.simulation_state.frames), "[#]"
+        )
+
+        sim_layout.addRow(lbl_n_particles, self.input_N_particles)
+        sim_layout.addRow(lbl_frames, self.input_frames)
+
+        # Combo para tipo de gas
+        lbl_gas = QLabel("Gas de trabajo:")
+        lbl_gas.setToolTip("Selecciona el gas con el que se simula la descarga.")
+        self.view_mode_combo = QComboBox()
+        self.view_mode_combo.addItems([
+            "Xenón (Xe) – estándar en propulsión",
+            "Argón (Ar) – experimental, menor masa",
+            "Helio (He) – alta movilidad, muy ligero"
+        ])
+        self.view_mode_combo.setStyleSheet(box_render_style())
+        sim_layout.addRow(lbl_gas, self.view_mode_combo)
+
         sim_box.setLayout(sim_layout)
         layout.addWidget(sim_box)
 
-
-        self.simulation_running = False
-        self.simulation_paused = False
-        self.simulation_worker = LoaderSimulation(plotter=self.simulation_instance)
-        self.simulation_thread = QThread()
-        self.simulation_worker.moveToThread(self.simulation_thread)
-        # 3. Conectar señales y slots
-        self.simulation_thread.started.connect(self.simulation_worker.run)
-        self.simulation_worker.finished.connect(self.simulation_thread.quit)
-        self.simulation_worker.finished.connect(self.simulation_worker.deleteLater)
-        self.simulation_thread.finished.connect(self.simulation_thread.deleteLater)
-        self.loader_worker_simulation = None
-
+        # ---- Botones de control de simulación ----
+        controls_box = QGroupBox("Controles de simulación")
+        controls_box.setStyleSheet(box_render_style())
         controls_layout = QHBoxLayout()
 
         self.start_btn = QPushButton("▶️ Simular")
         self.start_btn.setStyleSheet(button_parameters_style())
+        self.start_btn.setToolTip("Inicia o reanuda la simulación de partículas.")
         self.start_btn.clicked.connect(self.on_run_simulation)
         controls_layout.addWidget(self.start_btn)
 
-        self.pause_btn = QPushButton("▶️ Continuar")
+        self.pause_btn = QPushButton("⏸️ Run")
         self.pause_btn.setStyleSheet(button_parameters_style())
         self.pause_btn.setCheckable(True)
         self.pause_btn.clicked.connect(self.on_pause_resume_clicked)
         controls_layout.addWidget(self.pause_btn)
 
-        self.restart_btn = QPushButton("🔄 Restart")
-        self.restart_btn.clicked.connect(self.on_restart_clicked)
-        self.restart_btn.setStyleSheet(button_parameters_style())
-        controls_layout.addWidget(self.restart_btn)
+        # ----------- Aquí está el nuevo checkbox ------------
+        self.enable_checkbox = QCheckBox("Habilitar computacion grafica")
+        self.enable_checkbox.setChecked(True)  # o False según lo que desees por defecto
+        self.enable_checkbox.setToolTip("Activa o desactiva el uso de CUDA (Nvidia).")
+        controls_layout.addWidget(self.enable_checkbox)
+        # Puedes conectar a una función si quieres hacer algo cuando cambie el estado:
+        # -----------------------------------------------------
 
-        layout.addLayout(controls_layout)
+        controls_box.setLayout(controls_layout)
+        layout.addWidget(controls_box)
 
-        self.view_mode_combo = QComboBox()
-        self.view_mode_combo.addItems(["Gas Xenon", ""])
-        self.view_mode_combo.setStyleSheet(box_render_style())
-        layout.addWidget(self.view_mode_combo)
-
-
-        advanced_toggle = QPushButton("Opciones Avanzadas")
+        # ---- Opciones avanzadas ----
+        advanced_toggle = QPushButton("Opciones avanzadas")
         advanced_toggle.setCheckable(True)
         advanced_toggle.setChecked(False)
-        advanced_toggle.setStyleSheet("""
-            QPushButton {
-                background-color: #18191a;
-                color: #f5f5f5;
-                border: none;
-                font-weight: bold;
-                text-align: left;
-                padding: 8px;
-                border-radius: 3px;
-            }
-            QPushButton:checked {
-                background-color: #23272b;
-                color: #f5f5f5;
-            }
-        """)
+        advanced_toggle.setStyleSheet(advanced_toggle_style())
 
         advanced_content = QFrame()
         advanced_content.setVisible(False)
-        advanced_content.setStyleSheet("""
-            QFrame {
-                background-color: #23272b;
-                color: #f5f5f5;
-                border-radius: 3px;
-                padding: 8px;
-            }
-        """)
-        advanced_content_layout = QVBoxLayout(advanced_content)
-        advanced_content_layout.addWidget(QLabel("Opciones avanzadas (label interno)"))
+        advanced_content.setStyleSheet(advanced_content_style())
+        advanced_content_layout = QFormLayout(advanced_content)
+
+        self.input_alpha_container, self.input_alpha = _input_with_unit(
+            str(self.simulation_state.alpha), "[adim]"
+        )
+        self.input_alpha_container.setToolTip("Coeficiente de recombinación/adimensional para el modelo.")
+
+        self.input_sigma_ion_container, self.input_sigma_ion = _input_with_unit(
+            str(self.simulation_state.sigma_ion), "[m²]"
+        )
+        self.input_sigma_ion_container.setToolTip("Sección eficaz de ionización (m²).")
+
+        self.input_dt_container, self.input_dt = _input_with_unit(
+            str(self.simulation_state.dt), "[s]"
+        )
+        self.input_dt_container.setToolTip("Paso temporal de integración.")
+
+        advanced_content_layout.addRow("Alpha:", self.input_alpha_container)
+        advanced_content_layout.addRow("Sigma ion:", self.input_sigma_ion_container)
+        advanced_content_layout.addRow("Delta time:", self.input_dt_container)
 
         def toggle_advanced():
             advanced_content.setVisible(advanced_toggle.isChecked())
 
         advanced_toggle.clicked.connect(toggle_advanced)
+        layout.addWidget(advanced_toggle)
+        layout.addWidget(advanced_content)
 
-        output_box = QGroupBox("Salida de Simulación")
-        output_box.setStyleSheet("""
-            QGroupBox {
-                background-color: #23272b;
-                color: #f5f5f5;
-                border: 1.5px solid #333;
-                border-radius: 5px;
-                margin-top: 8px;
-                font-weight: bold;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 0 10px;
-            }
-            QLabel {
-                color: #f5f5f5;
-                font-weight: normal;
-                font-size: 13px;
-                padding: 2px;
-            }
-        """)
+
+        # ---- Salida de la simulación ----
+        output_box = QGroupBox("📊 Resultados de Simulación")
+        output_box.setStyleSheet(box_render_style())
         output_layout = QVBoxLayout(output_box)
-
         self.label_impulso = QLabel("Impulso específico: <b>---</b>")
         self.label_tiempo = QLabel("Tiempo de simulación: <b>---</b>")
         self.label_frames = QLabel("Número de frames: <b>---</b>")
         output_layout.addWidget(self.label_impulso)
         output_layout.addWidget(self.label_tiempo)
         output_layout.addWidget(self.label_frames)
-
         layout.addWidget(output_box)
 
-        # --- Añade estos widgets a tu layout principal ---
-        layout.addWidget(advanced_toggle)
-        layout.addWidget(advanced_content)
-
         layout.addStretch()
+        self.setLayout(layout)
+
+        # Inicialización de variables de simulación (como antes)
+        self.simulation_viewer = QtInteractor(self)
+        self.simulation_instance = Simulation(plotter=self.simulation_viewer)
+        self.simulation_running = False
+        self.simulation_paused = False
+        self.simulation_worker = LoaderSimulation(plotter=self.simulation_instance)
+        self.simulation_thread = QThread()
+        self.simulation_worker.moveToThread(self.simulation_thread)
+        self.simulation_thread.started.connect(self.simulation_worker.run)
+        self.simulation_worker.finished.connect(self.simulation_thread.quit)
+        self.simulation_worker.finished.connect(self.simulation_worker.deleteLater)
+        self.simulation_thread.finished.connect(self.simulation_thread.deleteLater)
+        self.loader_worker_simulation = None
 
     def on_run_simulation(self):
+        campos = {
+            "N_particles": self.input_N_particles.text(),
+            "frames": self.input_frames.text(),
+            "alpha": self.input_alpha.text(),
+            "sigma_ion": self.input_sigma_ion.text(),
+            "dt": self.input_dt.text(),
+        }
+        opcionales = ["alpha", "sigma_ion", "dt"]
+
         try:
-            N_particles = int(self.input_N_particles.text())
-            frames = int(self.input_frames.text())
+            valores = self.validar_numeros(campos, opcionales=opcionales)
+        except ValueError as e:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Error de validación", str(e))
+            return
 
-            self.simulation_state.N_particles = N_particles
-            self.simulation_state.frames = frames
+        N_particles = int(valores["N_particles"])
+        frames = int(valores["frames"])
+        alpha = valores["alpha"]      # Puede ser float o None
+        sigma_ion = valores["sigma_ion"]
+        dt = valores["dt"]
 
-            new_params = (N_particles, frames)
+        self.simulation_state.N_particles = N_particles
+        self.simulation_state.frames = frames
+        self.simulation_state.alpha = alpha
+        self.simulation_state.sigma_ion = sigma_ion
+        self.simulation_state.dt = dt
 
-            if new_params != self.simulation_state.prev_params_simulation:
-                print("🔄 Parámetros de simulación cambiaron:", new_params)
-                self.simulation_state.prev_params_simulation = new_params
-                self.run_solver_in_subprocess()
-            else:
-                print("⚠️ No se han realizado cambios en los parámetros.")
+        gas_combo_index = self.view_mode_combo.currentIndex()
+        gas_combo_text = self.view_mode_combo.currentText()
+        # Opcional: Normaliza el valor para enviarlo limpio
+        if "Xenón" in gas_combo_text:
+            gas = "Xenon"
+        elif "Argón" in gas_combo_text:
+            gas = "Argon"
+        elif "Helio" in gas_combo_text:
+            gas = "Helium"
+        elif "Kriptón" in gas_combo_text or "Krypton" in gas_combo_text:
+            gas = "Krypton"
+        else:
+            gas = "Xenon"  # Por defecto
 
-        except ValueError:
-            print("❌ Error: Parámetros inválidos")
+        # O si quieres, usa un diccionario de mapeo
+        gas_map = {
+            0: "Xenon",
+            1: "Argon",
+            2: "Helium",
+            3: "Krypton"
+        }
+        gas = gas_map.get(gas_combo_index, "Xenon")
 
-    def run_solver_in_subprocess(self):
+        new_params = (N_particles, frames, alpha, sigma_ion, dt, gas)
+
+        if new_params != self.simulation_state.prev_params_simulation:
+            print("🔄 Parámetros de simulación cambiaron:", new_params)
+            self.simulation_state.prev_params_simulation = new_params
+            self.run_solver_in_subprocess(N_particles, frames, alpha, sigma_ion, dt, gas)
+        else:
+            print("⚠️ No se han realizado cambios en los parámetros.")
+
+    def validar_numeros(self, campos, opcionales=None):
+        if opcionales is None:
+            opcionales = set()
+        else:
+            opcionales = set(opcionales)
+        resultados = {}
+        for nombre, texto in campos.items():
+            texto = str(texto).strip()
+            if not texto or texto.lower() == "none":
+                if nombre in opcionales:
+                    resultados[nombre] = None
+                    continue
+                else:
+                    raise ValueError(f"El campo '{nombre}' es obligatorio y está vacío.")
+            try:
+                valor = float(texto)
+            except ValueError:
+                raise ValueError(f"El campo '{nombre}' debe ser un número válido. Valor recibido: '{texto}'")
+            resultados[nombre] = valor
+        return resultados
+
+    def run_solver_in_subprocess(self, N_particles, frames, alpha, sigma_ion, dt, gas):
         import subprocess
         from PySide6.QtCore import QTimer
 
-        N_particles = int(self.input_N_particles.text())
-        frames = int(self.input_frames.text())
-
+        
         args = [
-            'python3', worker('particle_in_cell_process.py'),  # Ajusta el path si es necesario
-            str(N_particles), str(frames),  # Pasa los parámetros necesarios
+            'python3', worker("particle_in_cell_process.py"),
+            str(N_particles),
+            str(frames),
+            "" if alpha is None else str(alpha),
+            "" if sigma_ion is None else str(sigma_ion),
+            "" if dt is None else str(dt),
+            str(self.enable_checkbox.isChecked()),
+            gas  # Nuevo argumento: el tipo de gas seleccionado
         ]
-        # Aquí puedes implementar la lógica para ejecutar el solver en un subprocess
-        # Por ejemplo, usando subprocess.run() o similar
         print("🔄 Ejecutando solver en subprocess...")
-        # Simulación de ejecución
         self.solver_start_time = time.perf_counter()
         try:
             self.process = subprocess.Popen(args)
@@ -226,7 +289,6 @@ class SimulationOptionsPanel(QWidget):
                 print(f"[DEBUG] Proceso terminado correctamente. Tiempo total: {elapsed:.2f} s")
                 self.process = None
 
-                # Leer resultados desde JSON
                 import json
                 try:
                     with open("resultados_simulacion.json") as f:
@@ -234,6 +296,7 @@ class SimulationOptionsPanel(QWidget):
                     impulso = resultados.get("impulso_especifico", "N/A")
                 except Exception as e:
                     print(f"[ERROR] No se pudieron leer los resultados: {e}")
+                    impulso = "N/A"
 
                 self.label_impulso.setText(f"Impulso específico: <b>{impulso} s</b>")
                 self.label_tiempo.setText(f"Tiempo de simulación: <b>{elapsed} min</b>")

@@ -49,130 +49,107 @@ class FieldOptionsPanel(QWidget):
         self.solver_instance = ElectricFieldSolver()
         self.simulation_state = self.main_window.simulation_state
         self.setStyleSheet("background-color: transparent;")
-
-        # Layout principal
         layout = QVBoxLayout(self)
 
-        # Inputs voltaje
+        # ──────────────────────────────────────────────────────────────
+        # 1. Grupo: Parámetros de simulación física
+        field_box = QGroupBox("⚡ Parámetros físicos (Simulación)")
+        field_box.setStyleSheet(box_render_style())
+        sim_layout = QFormLayout()
+
+        lbl_volt = QLabel("Voltaje de ánodo [V]:")
+        lbl_volt.setToolTip("Diferencia de potencial aplicada entre el ánodo y el cátodo.")
         self.input_Volt_container, self.input_Volt = _input_with_unit(str(self.simulation_state.voltage), "[V]")
+
+        lbl_cath = QLabel("Voltaje de cátodo [V]:")
+        lbl_cath.setToolTip("Potencial aplicado al cátodo respecto a tierra.")
+
         self.input_Volt_Cath_container, self.input_Volt_Cath = _input_with_unit(str(self.simulation_state.voltage_cathode), "[V]")
 
-        # Viewer único
-        self.field_viewer = self._create_viewer()
+        sim_layout.addRow(lbl_volt, self.input_Volt_container)
+        sim_layout.addRow(lbl_cath, self.input_Volt_Cath_container)
 
-        # Almacenan los datos
-        self.current_field = None
-        self.current_density = None
+        self.charge_density_check = QCheckBox("Habilitar densidad de carga")
+        self.charge_density_check.setToolTip("Activa la resolución de Poisson incluyendo densidad electrónica.")
+        self.charge_density_check.setChecked(False)
+        self.charge_density_check.setStyleSheet(checkbox_parameters_style())
+        sim_layout.addRow(self.charge_density_check)
 
-        # Parámetros campo eléctrico
-        field_box = QGroupBox("Electric Field Parameters")
-        field_box.setSizePolicy(QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Fixed)
-        sim_layout = QFormLayout()
-        sim_layout.addRow("Voltaje (Volt):", self.input_Volt_container)
-        sim_layout.addRow("Voltaje Cathode (Volt_Cath):", self.input_Volt_Cath_container)
         field_box.setLayout(sim_layout)
         layout.addWidget(field_box)
 
-        # Check habilitar densidad
-        self.charge_density_check = QCheckBox("Habilitar densidad de carga")
-        self.charge_density_check.setChecked(False)
-        self.charge_density_check.setStyleSheet(checkbox_parameters_style())
-        layout.addWidget(self.charge_density_check)
-
-        # Botón update
-        update_btn = QPushButton("Update")
+        # ──────────────────────────────────────────────────────────────
+        # 2. Grupo: Acciones de simulación
+        actions_box = QGroupBox("Acciones de simulación")
+        actions_box.setStyleSheet(box_render_style())
+        actions_layout = QHBoxLayout()
+        update_btn = QPushButton("Actualizar campo")
         update_btn.setStyleSheet(button_parameters_style())
+        update_btn.setToolTip("Ejecuta el cálculo del campo eléctrico con los parámetros actuales.")
         update_btn.clicked.connect(self.on_update_clicked_Electric_field)
-        layout.addWidget(update_btn)
+        actions_layout.addWidget(update_btn)
+        actions_box.setLayout(actions_layout)
+        layout.addWidget(actions_box)
 
-        # Toggle entre campo y densidad
+        # ──────────────────────────────────────────────────────────────
+        # 3. Grupo: Visualización
+        vis_box = QGroupBox("Parámetros de visualización")
+        vis_box.setStyleSheet(box_render_style())
+        vis_layout = QFormLayout()
+
+        lbl_quantity = QLabel("Magnitud a visualizar:")
+        lbl_quantity.setToolTip("Selecciona entre campo eléctrico o densidad electrónica.")
         self.combo = QComboBox()
         self.combo.addItems(["Electric Field", "Electron Density"])
         self.combo.setStyleSheet(box_render_style())
         self.combo.currentTextChanged.connect(self.switch_dataset)
-        layout.addWidget(self.combo)
+        vis_layout.addRow(lbl_quantity, self.combo)
 
+        lbl_viewmode = QLabel("Modo de vista:")
+        lbl_viewmode.setToolTip("Vista 3D o corte 2D en el plano ZY.")
         self.view_mode_combo = QComboBox()
         self.view_mode_combo.addItems(["3D", "2D Slice ZY"])
         self.view_mode_combo.setStyleSheet(box_render_style())
         self.view_mode_combo.currentTextChanged.connect(self.update_view_mode)
-        layout.addWidget(self.view_mode_combo)
+        vis_layout.addRow(lbl_viewmode, self.view_mode_combo)
 
+        lbl_zslice = QLabel("Plano X para corte (solo modo 2D):")
+        lbl_zslice.setToolTip("Valor de X donde se realiza el corte (en metros).")
         self.z_value_edit = QLineEdit()
-        self.z_value_edit.setPlaceholderText("Z value (float)")
-        self.z_value_edit.setEnabled(False)  # Solo habilitado en modo 2D
+        self.z_value_edit.setPlaceholderText("Ej: 0.01")
+        self.z_value_edit.setEnabled(False)
         self.z_value_edit.editingFinished.connect(self.update_z_value)
-        layout.addWidget(QLabel("Z slice"))
-        layout.addWidget(self.z_value_edit)
-        self.current_z_value = 0.01
+        vis_layout.addRow(lbl_zslice, self.z_value_edit)
 
-
-        self.current_z_index = 0
-        self.z_values = None  # Aquí almacenarás los posibles valores de Z para el slider
-
+        lbl_viewdir = QLabel("Orientación de cámara:")
         self.view_direction_combo = QComboBox()
         self.view_direction_combo.addItems([
-            "Isometric",
-            "XY (Top)",
-            "ZY (Front)",
-            "ZX (Side)",
-            "XZ (Bottom)",
-            "YX (Back)"
+            "Isometric", "XY (Top)", "ZY (Front)", "ZX (Side)", "XZ (Bottom)", "YX (Back)"
         ])
         self.view_direction_combo.setStyleSheet(box_render_style())
         self.view_direction_combo.currentTextChanged.connect(self.change_view_direction)
-        layout.addWidget(self.view_direction_combo)
+        vis_layout.addRow(lbl_viewdir, self.view_direction_combo)
 
-                    # Grupo de opciones avanzadas
-        advanced_toggle = QPushButton("Opciones Avanzadas")
-        advanced_toggle.setCheckable(True)
-        advanced_toggle.setChecked(False)
-        advanced_toggle.setStyleSheet("""
-            QPushButton {
-                background-color: #18191a;
-                color: #f5f5f5;
-                border: none;
-                font-weight: bold;
-                text-align: left;
-                padding: 8px;
-                border-radius: 3px;
-            }
-            QPushButton:checked {
-                background-color: #23272b;
-                color: #f5f5f5;
-            }
-        """)
+        vis_box.setLayout(vis_layout)
+        layout.addWidget(vis_box)
 
-        advanced_content = QFrame()
-        advanced_content.setVisible(False)
-        advanced_content.setStyleSheet("""
-            QFrame {
-                background-color: #23272b;
-                color: #f5f5f5;
-                border-radius: 3px;
-                padding: 8px;
-            }
-        """)
-        advanced_content_layout = QVBoxLayout(advanced_content)
-        advanced_content_layout.addWidget(QLabel("Opciones avanzadas (label interno)"))
-
-        def toggle_advanced():
-            advanced_content.setVisible(advanced_toggle.isChecked())
-
-        advanced_toggle.clicked.connect(toggle_advanced)
-
-        # --- Añade estos widgets a tu layout principal ---
-        layout.addWidget(advanced_toggle)
-        layout.addWidget(advanced_content)
-
-        # Viewer embebido
+        # ──────────────────────────────────────────────────────────────
+        # 4. Visualizador 3D
+        self.field_viewer = self._create_viewer()
         layout.addWidget(self.field_viewer)
+
         layout.addStretch()
         self.setLayout(layout)
 
         # Carga inicial de datos si existen
+        self.current_field = None
+        self.current_density = None
+        self.current_z_value = 0.01
+        self.current_z_index = 0
+        self.z_values = None
         self._load_initial_field_if_exists()
         self._load_initial_density_if_exists()
+
 
     def update_view(self):
         if self.combo.currentText() == "Electric Field":
@@ -182,16 +159,29 @@ class FieldOptionsPanel(QWidget):
 
     def _create_viewer(self):
         viewer = QtInteractor()
-        viewer.set_background("gray")
-        viewer.setStyleSheet("background-color: #131313; border-radius: 5px;")
+        viewer.set_background("white")
+        viewer.setStyleSheet("background-color: white; border-radius: 5px;")
         viewer.add_axes(interactive=False)
         viewer.setSizePolicy(QtW.QSizePolicy.Expanding, QtW.QSizePolicy.Expanding)
         viewer.view_zx()
         return viewer
 
     def on_update_clicked_Electric_field(self):
-        voltaje = float(self.input_Volt.text())
-        voltaje_Cath = float(self.input_Volt_Cath.text())
+        campos = {
+            'Voltaje': self.input_Volt.text(),
+            'Voltaje_Cath': self.input_Volt_Cath.text(),
+        }
+
+        try:
+            valores = self.validar_numeros(campos)
+        except ValueError as e:
+            from PySide6.QtWidgets import QMessageBox
+            print(str(e))
+            QMessageBox.critical(self, "Error de validación", str(e))
+            return
+
+        voltaje = valores['Voltaje']
+        voltaje_Cath = valores['Voltaje_Cath']
         validate_density = self.charge_density_check.isChecked()
 
         self.simulation_state.voltage = voltaje
@@ -225,6 +215,22 @@ class FieldOptionsPanel(QWidget):
         self.field_viewer.show()
         self.worker = None
         self.thread = None
+
+    def validar_numeros(self, campos):
+        """
+        Valida que todos los valores sean numéricos y no vacíos.
+        """
+        resultados = {}
+        for nombre, texto in campos.items():
+            texto = str(texto).strip()
+            if not texto:
+                raise ValueError(f"El campo '{nombre}' es obligatorio y está vacío.")
+            try:
+                valor = float(texto)
+            except ValueError:
+                raise ValueError(f"El campo '{nombre}' debe ser un número válido. Valor recibido: '{texto}'")
+            resultados[nombre] = valor
+        return resultados
 
     def on_field_loaded(self, data):
         self.current_field = data
@@ -261,7 +267,7 @@ class FieldOptionsPanel(QWidget):
             return
 
         self.field_viewer.clear()
-        self.field_viewer.set_background("gray")
+        self.field_viewer.set_background("white")
         self.field_viewer.add_axes(interactive=False)
 
         mode = self.view_mode_combo.currentText()
@@ -411,11 +417,11 @@ class FieldOptionsPanel(QWidget):
         dens = self.current_density
         self.field_viewer.clear()
         self.field_viewer.set_background("white")
-        self.field_viewer.add_axes(color="white")
+        self.field_viewer.add_axes(color="black")
 
         mode = self.view_mode_combo.currentText()
         if mode == "3D":
-            self.field_viewer.set_background("gray")
+            self.field_viewer.set_background("white")
             self.field_viewer.add_axes(color="black")
             self.field_viewer.add_mesh(
                 dens["density"],
@@ -435,7 +441,7 @@ class FieldOptionsPanel(QWidget):
             # slice_mesh = self.project_to_plane(dens["density"], z_plane=self.current_z_value)
             slice_mesh = self.filter_and_project_to_plane_x(dens["density"], x_plane=self.current_z_value)
             if slice_mesh is not None and slice_mesh.n_points > 0:
-                self.field_viewer.set_background("gray")
+                self.field_viewer.set_background("white")
                 self.field_viewer.add_axes(color="black")
 
                 self.field_viewer.add_mesh(

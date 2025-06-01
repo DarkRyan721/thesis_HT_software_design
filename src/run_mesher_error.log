@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/home/miguel/Documents/project/src/workers/mesh_generator_process.py", line 29, in <module>
+    mesh.generate()
+  File "/home/miguel/Documents/project/src/mesh_generator.py", line 452, in generate
+    cathode_surfaces_new.remove(29)
+ValueError: list.remove(x): x not in list
