@@ -38,7 +38,7 @@ import time
 from PySide6.QtCore import QTimer
 
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QLabel, QFrame
-from project_paths import data_file, project_file, temp_data_file, worker
+from project_paths import data_file, model, project_file, temp_data_file, worker
 
 class HomeOptionsPanel(QWidget):
     def __init__(self, main_window):
@@ -316,6 +316,7 @@ class HomeOptionsPanel(QWidget):
             print("⚠️ No se han realizado cambios en la malla.")
 
         self.simulation_state.print_state()
+        self.simulation_state.save_to_json(model("simulation_state.json"))
 
     def validar_numeros(self, campos, opcionales=None):
         """

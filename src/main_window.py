@@ -1,5 +1,6 @@
 # ──────────────────────────────────────────────
 # 🧰 Librerías estándar
+import os
 import numpy as np
 
 # ──────────────────────────────────────────────
@@ -22,6 +23,7 @@ import gmsh
 # 🧩 Módulos propios
 from electric_field_solver import ElectricFieldSolver
 from mesh_generator import HallThrusterMesh
+from project_paths import model
 from widgets.panels.simulation_options import SimulationOptionsPanel
 from widgets.panels.magnetic_field.magnetic_options import MagneticOptionsPanel
 from widgets.panels.field_options import FieldOptionsPanel
@@ -45,7 +47,19 @@ class MainWindow(QtW.QMainWindow):
         self.setMinimumSize(int(w * 0.8), int(h * 0.8))
         self.resize(int(w * 0.95), int(h * 0.8))
 
-        self.simulation_state = SimulationState()
+        # self.simulation_state = SimulationState()
+
+        state_file = model("simulation_state.json")
+
+        # Intenta cargar el estado existente, si no existe crea uno nuevo por defecto
+        if os.path.exists(state_file):
+            print("[INFO] Cargando estado de simulación desde JSON.")
+            self.simulation_state = SimulationState.load_from_json(state_file)
+        else:
+            print("[INFO] No existe archivo de estado. Usando valores por defecto.")
+            self.simulation_state = SimulationState()
+            self.simulation_state.save_to_json(state_file)  # crea archivo inicial
+
         self.home_panel = HomeOptionsPanel(self)
         self.field_panel = FieldOptionsPanel(self)
         self.magnetic_panel = MagneticOptionsPanel(self)

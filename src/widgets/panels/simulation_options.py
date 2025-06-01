@@ -19,7 +19,7 @@ import PySide6.QtWidgets as QtW
 from PySide6.QtCore import Qt
 from PySide6.QtCore import QTimer
 
-from project_paths import data_file, worker
+from project_paths import data_file, model, worker
 from widgets.panels.collapse import CollapsibleBox
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QLabel, QFrame
 
@@ -233,6 +233,9 @@ class SimulationOptionsPanel(QWidget):
         else:
             print("⚠️ No se han realizado cambios en los parámetros.")
 
+        self.simulation_state.save_to_json(model("simulation_state.json"))
+
+
     def validar_numeros(self, campos, opcionales=None):
         if opcionales is None:
             opcionales = set()
@@ -258,7 +261,6 @@ class SimulationOptionsPanel(QWidget):
         import subprocess
         from PySide6.QtCore import QTimer
 
-        
         args = [
             'python3', worker("particle_in_cell_process.py"),
             str(N_particles),

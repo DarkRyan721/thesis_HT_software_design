@@ -38,7 +38,7 @@ from gui_styles.stylesheets import *
 # TODO: Importar el solver y el loader apropiados para el campo magnético
 # from E_field_solver import MagneticFieldSolver
 # from utils.magnetic_loader import MagneticLoaderWorker
-from project_paths import data_file, worker
+from project_paths import data_file, model, worker
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
@@ -162,6 +162,7 @@ class MagneticOptionsPanel(QWidget):
             print("⚠️ No se han realizado cambios en los parámetros magnéticos.")
 
         self.simulation_state.print_state()
+        self.simulation_state.save_to_json(model("simulation_state.json"))
 
     def validar_numeros(self, campos, opcionales=None):
         """

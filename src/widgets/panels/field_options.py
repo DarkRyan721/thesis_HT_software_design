@@ -38,7 +38,7 @@ from widgets.options_panel import OptionsPanel
 from widgets.view_panel import ViewPanel
 from utils.loader_thread import LoaderWorker
 from utils.ui_helpers import _input_with_unit
-from project_paths import data_file, temp_data_file, project_file, worker
+from project_paths import data_file, model, temp_data_file, project_file, worker
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QLabel, QFrame
 from PySide6.QtWidgets import QVBoxLayout, QPushButton, QWidget, QLabel, QFrame
 
@@ -215,6 +215,7 @@ class FieldOptionsPanel(QWidget):
         self.field_viewer.show()
         self.worker = None
         self.thread = None
+        self.simulation_state.save_to_json(model("simulation_state.json"))
 
     def validar_numeros(self, campos):
         """
