@@ -136,7 +136,6 @@ def plot_field_XY_heatmap_hist(
     vmin = np.nanpercentile(vals_valid, 2)
     vmax = np.nanpercentile(vals_valid, 98)
     norm = mcolors.LogNorm(vmin=max(vmin, 1e-3), vmax=vmax)
-
     cmap = plt.get_cmap('inferno').copy()
 
     plt.figure(figsize=(9, 8))
@@ -160,36 +159,199 @@ def plot_field_XY_heatmap_hist(
     plt.tight_layout()
     plt.show()
 
+# --- Ejemplo de uso ---
+# campo = np.load('data_files/E_Field_Laplace.npy')
+# plot_field_XY_heatmap_hist(
+#     campo,
+#     z_plane=0.025,
+#     x_range=(-0.08, 0.08),
+#     y_range=(-0.08, 0.08),
+#     resolution=400,  # 300-500 es buena densidad para pocos puntos
+#     sigma=2.5
+# )
+
+# def plot_field_ZX_full_with_arrows(
+#         campo,
+#         x_range=(-0.10, 0.10),
+#         z_range=(0, 0.22),
+#         resolution=1000,
+#         Rin=0.028, Rex=0.05,
+#         chamber_length=0.025,
+#         sigma=3,
+#         arrow_step=5,           # Submuestreo normal
+#         arrow_step_channel=30,   # Submuestreo canal
+#         angulo_max_deg=0.5        # Ángulo máximo para considerar "paralelo a Z"
+#     ):
+#     import numpy as np
+#     import matplotlib.pyplot as plt
+#     from scipy.interpolate import griddata
+#     from scipy.ndimage import gaussian_filter
+#     import matplotlib.colors as mcolors
+
+#     x = campo[:, 0]
+#     z = campo[:, 2]
+#     Ex = campo[:, 3]
+#     Ez = campo[:, 5]
+#     E_mag = np.sqrt(Ex**2 + Ez**2)
+#     vectors = campo[:, 3:]
+#     magnitudes = np.linalg.norm(vectors, axis=1)
+#     log_magnitudes = np.log10(magnitudes + 1e-3)
+#     print("Valor mínimo de |E|:", np.nanmin(log_magnitudes))
+#     print("Valor máximo de |E|:", np.nanmax(log_magnitudes))
+
+#     # Malla regular
+#     z_grid, x_grid = np.mgrid[
+#         z_range[0]:z_range[1]:complex(resolution),
+#         x_range[0]:x_range[1]:complex(resolution)
+#     ]
+
+#     points = np.stack([z, x], axis=1)
+#     # Interpolación de la magnitud (heatmap)
+#     E_grid = griddata(
+#         points, E_mag,
+#         (z_grid, x_grid),
+#         method='linear', fill_value=np.nan
+#     )
+#     # Interpolación de las componentes vectoriales
+#     Ex_grid = griddata(points, Ex, (z_grid, x_grid), method='linear', fill_value=np.nan)
+#     Ez_grid = griddata(points, Ez, (z_grid, x_grid), method='linear', fill_value=np.nan)
+
+#     # Suavizado Gaussiano SOLO en la magnitud
+#     E_grid_smooth = gaussian_filter(np.nan_to_num(E_grid, nan=0.0), sigma=sigma)
+
+#     # Máscara física y del canal
+#     mask_chamber = (z_grid <= chamber_length) & (
+#         (np.abs(x_grid) < Rin) | (np.abs(x_grid) > Rex)
+#     )
+#     mask_channel = (z_grid <= chamber_length) & (np.abs(x_grid) >= Rin) & (np.abs(x_grid) <= Rex)
+
+#     E_grid_masked = E_grid_smooth.copy()
+#     E_grid_masked[mask_chamber] = np.nan
+#     Ex_grid[mask_chamber] = np.nan
+#     Ez_grid[mask_chamber] = np.nan
+
+#     # Rango de colores del heatmap
+#     vals_valid = E_grid_masked[~np.isnan(E_grid_masked)]
+#     vmin = np.nanpercentile(vals_valid, 2) if vals_valid.size > 0 else 1
+#     vmax = np.nanpercentile(vals_valid, 98) if vals_valid.size > 0 else 10
+#     norm = mcolors.LogNorm(vmin=max(vmin, 1e-3), vmax=vmax)
+
+#     vmin_t = np.nanmin(log_magnitudes)
+#     vmax_t = np.nanmax(log_magnitudes)
+#     vmin_global = 10**vmin_t
+#     vmax_global = 10**vmax_t
+#     norm = mcolors.LogNorm(vmin=vmin, vmax=vmax)
+
+#     cmap = plt.get_cmap('plasma').copy()
+#     cmap.set_under('black')
+
+#     fig, ax = plt.subplots(figsize=(10, 8))
+#     ax.set_facecolor('black')
+
+#     img = ax.imshow(
+#         E_grid_masked.T,
+#         extent=(z_range[0], z_range[1], x_range[0], x_range[1]),
+#         origin='lower', cmap=cmap, aspect='auto', norm=norm
+#     )
+#     # cbar = plt.colorbar(img, ax=ax, label='|E| (V/m)')
+#     # ticks = np.logspace(np.log10(vmin), np.log10(vmax), num=5)
+#     # cbar.set_ticks(ticks)
+#     # cbar.set_ticklabels([f'{tick:.1e}' for tick in ticks])
+# # 4. Crea una barra de color con el rango GLOBAL
+#     from matplotlib.cm import ScalarMappable
+#     norm_global = mcolors.LogNorm(vmin=vmin_global, vmax=vmax_global)
+#     sm = ScalarMappable(norm=norm_global, cmap=cmap)
+#     sm.set_array([])  # Obligatorio para algunos backends
+
+#     cbar = fig.colorbar(sm, ax=ax, label='|E| (V/m)')
+#     ticks = np.logspace(np.log10(vmin_global), np.log10(vmax_global), num=5)
+#     cbar.set_ticks(ticks)
+#     cbar.set_ticklabels([f'{tick:.1e}' for tick in ticks])
+
+#     plt.show()
+
+
+#     # ---------------------------------------------
+#     # Flechas negras: SOLO FUERA del canal
+#     # ---------------------------------------------
+#     step = arrow_step
+#     Xq = z_grid[::step, ::step]
+#     Yq = x_grid[::step, ::step]
+#     Uq = Ez_grid[::step, ::step]
+#     Vq = Ex_grid[::step, ::step]
+
+#     # Solo donde NO es canal ni mascara
+#     mask_not_canal = (~mask_channel[::step, ::step]) & (~mask_chamber[::step, ::step]) & (~np.isnan(Uq)) & (~np.isnan(Vq))
+#     norm_q = np.sqrt(Uq**2 + Vq**2)
+#     Uq_norm = np.divide(Uq, norm_q, out=np.zeros_like(Uq), where=norm_q!=0)
+#     Vq_norm = np.divide(Vq, norm_q, out=np.zeros_like(Vq), where=norm_q!=0)
+
+#     ax.quiver(
+#         Xq[mask_not_canal], Yq[mask_not_canal], Uq_norm[mask_not_canal], Vq_norm[mask_not_canal],
+#         color='black', scale=20, alpha=0.9, width=0.006, zorder=2
+#     )
+
+#     # ---------------------------------------------
+#     # Flechas magenta: SOLO EN CANAL y casi paralelas a +Z
+#     # ---------------------------------------------
+#     step_c = arrow_step_channel
+#     Xc = z_grid[::step_c, ::step_c]
+#     Yc = x_grid[::step_c, ::step_c]
+#     Uc = Ez_grid[::step_c, ::step_c]
+#     Vc = Ex_grid[::step_c, ::step_c]
+#     mask_canal = mask_channel[::step_c, ::step_c] & (~np.isnan(Uc)) & (~np.isnan(Vc))
+
+#     # Normalización
+#     norm_c = np.sqrt(Uc**2 + Vc**2)
+#     Uc_norm = np.divide(Uc, norm_c, out=np.zeros_like(Uc), where=norm_c!=0)
+#     Vc_norm = np.divide(Vc, norm_c, out=np.zeros_like(Vc), where=norm_c!=0)
+
+#     # Flechas en +Z y (más) paralelas al eje Z (más estricto)
+#     theta = np.abs(np.arctan2(Vc_norm, Uc_norm))   # Ángulo con Z
+#     angulo_max = np.deg2rad(angulo_max_deg)
+#     mask_paralelas = (Uc_norm > 0.2) & (theta < angulo_max) & mask_canal
+#     # (Uc_norm > 0.2) asegura que la componente Z sea suficientemente dominante
+
+#     # Chanell
+#     ax.quiver(
+#         Xc[mask_paralelas], Yc[mask_paralelas],
+#         Uc_norm[mask_paralelas], Vc_norm[mask_paralelas],
+#         color='black', scale=20, alpha=0.95, width=0.005, zorder=3
+#     )
+
+#     ax.set_title("Campo eléctrico sobre ZX (flechas densas y paralelas a +Z en canal)")
+#     ax.set_xlabel("Z (m)")
+#     ax.set_ylabel("X (m)")
+#     fig.tight_layout()
+#     plt.show()
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.interpolate import griddata
+from scipy.ndimage import gaussian_filter
+import matplotlib.colors as mcolors
+from matplotlib.cm import ScalarMappable
 
 def plot_field_ZX_full_with_arrows(
-        campo,
-        x_range=(-0.10, 0.10),
-        z_range=(0, 0.22),
-        resolution=1000,
-        Rin=0.028, Rex=0.05,
-        chamber_length=0.025,
-        sigma=100,
-        arrow_step=5,           # Submuestreo normal
-        arrow_step_channel=30,   # Submuestreo canal
-        angulo_max_deg=0.5        # Ángulo máximo para considerar "paralelo a Z"
-    ):
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from scipy.interpolate import griddata
-    from scipy.ndimage import gaussian_filter
-    import matplotlib.colors as mcolors
-
+    campo,
+    x_range=(-0.10, 0.10),
+    z_range=(0, 0.22),
+    resolution=1000,
+    Rin=0.028, Rex=0.05,
+    chamber_length=0.025,
+    sigma=3,
+    arrow_step=5,
+    arrow_step_channel=30,
+    angulo_max_deg=0.5
+):
     x = campo[:, 0]
     z = campo[:, 2]
     Ex = campo[:, 3]
-    Ey = campo[:, 4]
     Ez = campo[:, 5]
     E_mag = np.sqrt(Ex**2 + Ez**2)
     vectors = campo[:, 3:]
     magnitudes = np.linalg.norm(vectors, axis=1)
     log_magnitudes = np.log10(magnitudes + 1e-3)
-    print("Valor mínimo de |E|:", np.nanmin(log_magnitudes))
-    print("Valor máximo de |E|:", np.nanmax(log_magnitudes))
+
     # Malla regular
     z_grid, x_grid = np.mgrid[
         z_range[0]:z_range[1]:complex(resolution),
@@ -197,13 +359,7 @@ def plot_field_ZX_full_with_arrows(
     ]
 
     points = np.stack([z, x], axis=1)
-    # Interpolación de la magnitud (heatmap)
-    E_grid = griddata(
-        points, log_magnitudes,
-        (z_grid, x_grid),
-        method='linear', fill_value=np.nan
-    )
-    # Interpolación de las componentes vectoriales
+    E_grid = griddata(points, E_mag, (z_grid, x_grid), method='linear', fill_value=np.nan)
     Ex_grid = griddata(points, Ex, (z_grid, x_grid), method='linear', fill_value=np.nan)
     Ez_grid = griddata(points, Ez, (z_grid, x_grid), method='linear', fill_value=np.nan)
 
@@ -211,9 +367,7 @@ def plot_field_ZX_full_with_arrows(
     E_grid_smooth = gaussian_filter(np.nan_to_num(E_grid, nan=0.0), sigma=sigma)
 
     # Máscara física y del canal
-    mask_chamber = (z_grid <= chamber_length) & (
-        (np.abs(x_grid) < Rin) | (np.abs(x_grid) > Rex)
-    )
+    mask_chamber = (z_grid <= chamber_length) & ((np.abs(x_grid) < Rin) | (np.abs(x_grid) > Rex))
     mask_channel = (z_grid <= chamber_length) & (np.abs(x_grid) >= Rin) & (np.abs(x_grid) <= Rex)
 
     E_grid_masked = E_grid_smooth.copy()
@@ -221,13 +375,19 @@ def plot_field_ZX_full_with_arrows(
     Ex_grid[mask_chamber] = np.nan
     Ez_grid[mask_chamber] = np.nan
 
-    # Rango de colores del heatmap
-    vals_valid = E_mag[np.isfinite(E_mag) & (E_mag > 0)]
-    vmin = np.nanmin(log_magnitudes)
-    vmax = np.nanmax(log_magnitudes)
-    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+    # 1. Rango local para el heatmap (contraste máximo visual)
+    vals_valid = E_grid_masked[~np.isnan(E_grid_masked)]
+    vmin = np.nanpercentile(vals_valid, 2) if vals_valid.size > 0 else 1e-3
+    vmax = np.nanpercentile(vals_valid, 98) if vals_valid.size > 0 else 1e3
+    norm = mcolors.LogNorm(vmin=vmin, vmax=vmax)
 
-    cmap = plt.get_cmap('gray').copy()
+    # 2. Rango global para la barra
+    vmin_t = np.nanmin(log_magnitudes)
+    vmax_t = np.nanmax(log_magnitudes)
+    vmin_global = 10**vmin_t
+    vmax_global = 10**vmax_t
+
+    cmap = plt.get_cmap('plasma').copy()
     cmap.set_under('black')
 
     fig, ax = plt.subplots(figsize=(10, 8))
@@ -238,57 +398,45 @@ def plot_field_ZX_full_with_arrows(
         extent=(z_range[0], z_range[1], x_range[0], x_range[1]),
         origin='lower', cmap=cmap, aspect='auto', norm=norm
     )
-    cbar = plt.colorbar(img, ax=ax, label='|E| (V/m)')
-    # ticks = np.logspace(np.log10(vmin), np.log10(vmax), num=5)
-    # cbar.set_ticks(ticks)
-    # cbar.set_ticklabels([f'{tick:.1e}' for tick in ticks])
-    ticks = np.linspace(vmin, vmax, 6)  # 6 ticks
-    cbar.set_ticks(ticks)
-    cbar.set_ticklabels([fr"$10^{{{tick:.1f}}}$" for tick in ticks])
-    cbar.set_ticklabels([f'{10**tick:.1e}' for tick in ticks])
 
-    # ---------------------------------------------
-    # Flechas negras: SOLO FUERA del canal
-    # ---------------------------------------------
+    # Barra de color GLOBAL
+    norm_global = mcolors.LogNorm(vmin=vmin_global, vmax=vmax_global)
+    sm = ScalarMappable(norm=norm_global, cmap=cmap)
+    sm.set_array([])  # Obligatorio
+
+    cbar = fig.colorbar(sm, ax=ax, label='|E| (V/m)')
+    ticks = np.logspace(np.log10(vmin_global), np.log10(vmax_global), num=5)
+    cbar.set_ticks(ticks)
+    cbar.set_ticklabels([f'{tick:.1e}' for tick in ticks])
+
+    # QUIVER FIELD
     step = arrow_step
     Xq = z_grid[::step, ::step]
     Yq = x_grid[::step, ::step]
     Uq = Ez_grid[::step, ::step]
     Vq = Ex_grid[::step, ::step]
-
-    # Solo donde NO es canal ni mascara
     mask_not_canal = (~mask_channel[::step, ::step]) & (~mask_chamber[::step, ::step]) & (~np.isnan(Uq)) & (~np.isnan(Vq))
     norm_q = np.sqrt(Uq**2 + Vq**2)
     Uq_norm = np.divide(Uq, norm_q, out=np.zeros_like(Uq), where=norm_q!=0)
     Vq_norm = np.divide(Vq, norm_q, out=np.zeros_like(Vq), where=norm_q!=0)
-
     ax.quiver(
         Xq[mask_not_canal], Yq[mask_not_canal], Uq_norm[mask_not_canal], Vq_norm[mask_not_canal],
         color='black', scale=20, alpha=0.9, width=0.006, zorder=2
     )
 
-    # ---------------------------------------------
-    # Flechas magenta: SOLO EN CANAL y casi paralelas a +Z
-    # ---------------------------------------------
+    # Flechas dentro del canal
     step_c = arrow_step_channel
     Xc = z_grid[::step_c, ::step_c]
     Yc = x_grid[::step_c, ::step_c]
     Uc = Ez_grid[::step_c, ::step_c]
     Vc = Ex_grid[::step_c, ::step_c]
     mask_canal = mask_channel[::step_c, ::step_c] & (~np.isnan(Uc)) & (~np.isnan(Vc))
-
-    # Normalización
     norm_c = np.sqrt(Uc**2 + Vc**2)
     Uc_norm = np.divide(Uc, norm_c, out=np.zeros_like(Uc), where=norm_c!=0)
     Vc_norm = np.divide(Vc, norm_c, out=np.zeros_like(Vc), where=norm_c!=0)
-
-    # Flechas en +Z y (más) paralelas al eje Z (más estricto)
-    theta = np.abs(np.arctan2(Vc_norm, Uc_norm))   # Ángulo con Z
+    theta = np.abs(np.arctan2(Vc_norm, Uc_norm))
     angulo_max = np.deg2rad(angulo_max_deg)
     mask_paralelas = (Uc_norm > 0.2) & (theta < angulo_max) & mask_canal
-    # (Uc_norm > 0.2) asegura que la componente Z sea suficientemente dominante
-
-    # Chanell
     ax.quiver(
         Xc[mask_paralelas], Yc[mask_paralelas],
         Uc_norm[mask_paralelas], Vc_norm[mask_paralelas],
@@ -309,7 +457,7 @@ plot_field_ZX_full_with_arrows(
         resolution=1000,
         Rin=0.028, Rex=0.05,
         chamber_length=0.025,
-        sigma=25,
+        sigma=1000,
         arrow_step=70 # Espaciado entre flechas
     )
 

@@ -34,7 +34,7 @@ class PIC():
 
     def interpolate_to_S(self, s_particle):
         _, idx = self.tree.query(s_particle)
-        # print(s_particle.shape, self.E_values.shape, self.B_values.shape)
+        print(s_particle.shape, self.E_values.shape, self.B_values.shape)
         return self.E_values[idx], self.B_values[idx]
 
     def initizalize_to_simulation(self, v_neutro, timesteps):

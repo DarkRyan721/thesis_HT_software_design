@@ -188,7 +188,6 @@ class FieldOptionsPanel(QWidget):
         self.simulation_state.voltage_cathode = voltaje_Cath
 
         new_params = (voltaje, voltaje_Cath)
-        regenerate = new_params != self.simulation_state.prev_params_field
 
         params = {
             "voltage": voltaje,
@@ -196,10 +195,17 @@ class FieldOptionsPanel(QWidget):
             "validate_density": validate_density
         }
         print("validate density:", validate_density)
-        if regenerate:
+        if new_params != self.simulation_state.prev_params_field or self.simulation_state.field_outdated:
             print("🔄 ¡Parámetros cambiaron:", new_params)
             self.simulation_state.prev_params_field = new_params
-            self.run_solver_in_subprocess(self.on_field_loaded, params)
+            self.simulation_state.field_outdated = False
+            self.simulation_state.save_to_json(model("simulation_state.json"))
+            # self.run_solver_in_subprocess(self.on_field_loaded, params)
+            self.run_process_and_reload(
+                process_script="electric_field_process.py",
+                loader_mode="field",
+                finished_callback=self.on_field_loaded
+            )
             return
         else:
             print("⚠️ No se han realizado cambios en los parámetros del campo.")
@@ -215,7 +221,6 @@ class FieldOptionsPanel(QWidget):
         self.field_viewer.show()
         self.worker = None
         self.thread = None
-        self.simulation_state.save_to_json(model("simulation_state.json"))
 
     def validar_numeros(self, campos):
         """
@@ -234,6 +239,7 @@ class FieldOptionsPanel(QWidget):
         return resultados
 
     def on_field_loaded(self, data):
+        self.simulation_state.field_outdated = False
         self.current_field = data
         self.update_view()
 
@@ -262,6 +268,7 @@ class FieldOptionsPanel(QWidget):
             viewer.view_yx()
         # Después de cambiar, puedes resetear la cámara si es necesario
         viewer.reset_camera()
+
     def visualize_field(self):
         if self.current_field is None:
             print("No hay datos de campo eléctrico para visualizar.")
@@ -527,29 +534,50 @@ class FieldOptionsPanel(QWidget):
             worker = LoaderWorker(mode="density")
             self.main_window.launch_worker(worker, self.on_density_loaded)
 
-    def run_solver_in_subprocess(self, finished_callback, params):
-        import subprocess
-        from PySide6.QtCore import QTimer
+    # def run_solver_in_subprocess(self, finished_callback):
+    #     import subprocess
+    #     from PySide6.QtCore import QTimer
 
-        validate_density = int(self.charge_density_check.isChecked())
-        volt = float(self.input_Volt.text())
-        volt_cath = float(self.input_Volt_Cath.text())
 
-        args = [
-            'python3', worker('electric_field_process.py'),  # Ajusta el path si es necesario
-            str(volt), str(volt_cath), str(validate_density)
-        ]
+    #     args = [
+    #         'python3', worker('electric_field_process.py'),  # Ajusta el path si es necesario
+    #     ]
 
-        self.solver_start_time = time.perf_counter()
-        try:
-            self.process = subprocess.Popen(args)
-            print(f"[DEBUG] Proceso lanzado, PID: {self.process.pid}")
-        except Exception as e:
-            print(f"[ERROR] Fallo al lanzar el proceso: {e}")
-            self.process = None
-            return
+    #     self.solver_start_time = time.perf_counter()
+    #     try:
+    #         self.process = subprocess.Popen(args)
+    #         print(f"[DEBUG] Proceso lanzado, PID: {self.process.pid}")
+    #     except Exception as e:
+    #         print(f"[ERROR] Fallo al lanzar el proceso: {e}")
+    #         self.process = None
+    #         return
 
-        self.solver_finished = False
+    #     self.solver_finished = False
+
+    #     def check_output():
+    #         if self.process is None:
+    #             self.timer.stop()
+    #             return
+    #         if self.process.poll() is not None:
+    #             self.timer.stop()
+    #             self.solver_finished = True
+    #             elapsed = time.perf_counter() - self.solver_start_time
+    #             print(f"[DEBUG] Proceso terminado correctamente. Tiempo total: {elapsed:.2f} s")
+    #             self.process = None
+    #             self.load_field_with_worker(finished_callback, {
+    #                 "validate_density": 
+    #             })
+
+    #     self.timer = QTimer()
+    #     self.timer.timeout.connect(check_output)
+    #     self.timer.start(300)
+
+
+    def run_process_and_reload(self, process_script, loader_mode, finished_callback):
+        args = ['python3', worker(process_script)]
+        self.process = subprocess.Popen(args)
+        self.process_start_time = time.perf_counter()
+        self.process_finished = False
 
         def check_output():
             if self.process is None:
@@ -557,29 +585,14 @@ class FieldOptionsPanel(QWidget):
                 return
             if self.process.poll() is not None:
                 self.timer.stop()
-                self.solver_finished = True
-                elapsed = time.perf_counter() - self.solver_start_time
-                print(f"[DEBUG] Proceso terminado correctamente. Tiempo total: {elapsed:.2f} s")
+                self.process_finished = True
+                elapsed = time.perf_counter() - self.process_start_time
+                print(f"[DEBUG] Proceso terminado en {elapsed:.2f} s")
                 self.process = None
-                self.load_field_with_worker(finished_callback, {
-                    "validate_density": validate_density,
-                    "voltage": volt,
-                    "voltage_cathode": volt_cath
-                })
+                loader = LoaderWorker(mode=loader_mode, params={"validate_density": self.charge_density_check.isChecked()})
+                self.main_window.launch_worker(loader, finished_callback)
 
         self.timer = QTimer()
         self.timer.timeout.connect(check_output)
         self.timer.start(300)
-
-    def load_field_with_worker(self, finished_callback, params):
-        worker = LoaderWorker(
-            mode="field",
-            params={
-                "validate_density": params["validate_density"],
-                "voltage": params["voltage"],
-                "voltage_cathode": params["voltage_cathode"]
-            },
-            solver=self.solver_instance
-        )
-        self.main_window.launch_worker(worker, finished_callback)
 

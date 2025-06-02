@@ -28,7 +28,7 @@ try:
     outer_radius = 0.1/2 #0.1/2
     inner_radius = 0.056/2 #0.056/2
     height = 0.02 #0.02
-    refinement = "test"
+    refinement = "low"
     mesh_gen = HallThrusterMesh(R_big=outer_radius, R_small=inner_radius, H=height, refinement_level=refinement)
     mesh_gen.generate()
 
@@ -74,7 +74,7 @@ try:
 
     B_field.Save_B_Field(B=B_value, S=spatial_coords)
 
-    N = 1000
+    N = 100000
     dt = 0.00000004
     q_m = 7.35e5
     alpha = 0.9

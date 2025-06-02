@@ -275,15 +275,15 @@ if __name__ == "__main__":
     t_poisson_end = time.perf_counter()
     print(f"✅ Poisson solution completed in {t_poisson_end - t_poisson_start:.2f} s.")
 
-    # Plotting
-    print("\n🎨 Plotting the electric field from Laplace solution...")
-    t_plot_start = time.perf_counter()
-    solver.plot_E_Field(filename="Electric_Field_np.npy")
-    t_plot_end = time.perf_counter()
-    print(f"✅ Plot completed in {t_plot_end - t_plot_start:.2f} s.")
+    # # Plotting
+    # print("\n🎨 Plotting the electric field from Laplace solution...")
+    # t_plot_start = time.perf_counter()
+    # solver.plot_E_Field(filename="Electric_Field_np.npy")
+    # t_plot_end = time.perf_counter()
+    # print(f"✅ Plot completed in {t_plot_end - t_plot_start:.2f} s.")
 
-    t_total_end = time.perf_counter()
-    print(f"\n🧾 Total execution time: {t_total_end - t_total_start:.2f} s.")
-    print("🏁 Test Completed Successfully!")
+    # t_total_end = time.perf_counter()
+    # print(f"\n🧾 Total execution time: {t_total_end - t_total_start:.2f} s.")
+    # print("🏁 Test Completed Successfully!")
 
 

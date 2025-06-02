@@ -152,17 +152,22 @@ class MagneticOptionsPanel(QWidget):
 
         new_params = (nSteps, N_turns, I)
         regenerate = new_params != self.simulation_state.prev_params_magnetic
-        if regenerate:
+        if regenerate or self.simulation_state.magnetic_outdated:
             print("🔄 Parámetros magnéticos cambiaron:", new_params)
             self.simulation_state.prev_params_magnetic = new_params
-            self.run_bfield_external(nSteps, N_turns, I)
+            self.simulation_state.magnetic_outdated = False
+            self.simulation_state.save_to_json(model("simulation_state.json"))
+            # self.run_bfield_external(nSteps, N_turns, I)
+            self.run_process_and_reload(
+                process_script="magnetic_field_process.py",
+                loader_mode="magnetic",
+                finished_callback=self.on_magnetic_loaded
+            )
         else:
-            worker = LoaderWorker(mode="magnetic", params=new_params)
-            self.main_window.launch_worker(worker, self.on_magnetic_loaded)
             print("⚠️ No se han realizado cambios en los parámetros magnéticos.")
 
         self.simulation_state.print_state()
-        self.simulation_state.save_to_json(model("simulation_state.json"))
+
 
     def validar_numeros(self, campos, opcionales=None):
         """
@@ -190,15 +195,40 @@ class MagneticOptionsPanel(QWidget):
             resultados[nombre] = valor
         return resultados
 
-    def run_bfield_external(self, nSteps, N_turns, I):
-        script_path = worker("magnetic_field_process.py")
-        args = [
-            "python3", script_path,
-            str(nSteps), str(N_turns), str(I),
-        ]
+    # def run_bfield_external(self, finished_callback):
+    #     script_path = worker("magnetic_field_process.py")
+    #     args = [
+    #         "python3", script_path
+    #     ]
+    #     self.process = subprocess.Popen(args)
+    #     self.magnetic_start_time = time.perf_counter()
+    #     self.magnetic_finished = False
+
+    #     def check_output():
+    #         if self.process is None:
+    #             self.timer.stop()
+    #             return
+    #         if self.process.poll() is not None:
+    #             self.timer.stop()
+    #             self.magnetic_finished = True
+    #             elapsed = time.perf_counter() - self.magnetic_start_time
+    #             print(f"[DEBUG] Mallado terminado en {elapsed:.2f} s")
+    #             self.process = None
+    #             # Llama al callback
+    #             print("[INFO] Recargando malla con LoaderWorker luego de mallado.")
+    #             loader = LoaderWorker(mode="magnetic")
+    #             self.main_window.launch_worker(loader, self.on_magnetic_loaded)
+
+    #     self.timer = QTimer()
+    #     self.timer.timeout.connect(lambda: check_output())
+    #     self.timer.start(300)  # cada 300 ms
+
+
+    def run_process_and_reload(self, process_script, loader_mode, finished_callback):
+        args = ['python3', worker(process_script)]
         self.process = subprocess.Popen(args)
-        self.magnetic_start_time = time.perf_counter()
-        self.magnetic_finished = False
+        self.process_start_time = time.perf_counter()
+        self.process_finished = False
 
         def check_output():
             if self.process is None:
@@ -206,22 +236,20 @@ class MagneticOptionsPanel(QWidget):
                 return
             if self.process.poll() is not None:
                 self.timer.stop()
-                self.magnetic_finished = True
-                elapsed = time.perf_counter() - self.magnetic_start_time
-                print(f"[DEBUG] Mallado terminado en {elapsed:.2f} s")
+                self.process_finished = True
+                elapsed = time.perf_counter() - self.process_start_time
+                print(f"[DEBUG] Proceso terminado en {elapsed:.2f} s")
                 self.process = None
-                # Llama al callback
-                print("[INFO] Recargando malla con LoaderWorker luego de mallado.")
-                loader = LoaderWorker(mode="magnetic", params=(nSteps, N_turns, I))
-                self.main_window.launch_worker(loader, self.on_magnetic_loaded)
-                # (Opcional) llamar al callback adicional si quieres
+                loader = LoaderWorker(mode=loader_mode)
+                self.main_window.launch_worker(loader, finished_callback)
 
         self.timer = QTimer()
-        self.timer.timeout.connect(lambda: check_output())
-        self.timer.start(300)  # cada 300 ms
+        self.timer.timeout.connect(check_output)
+        self.timer.start(300)
 
     def on_magnetic_loaded(self, data):
             self.current_magnetic = data
+            self.simulation_state.magnetic_outdated = False
             self.main_window.View_Part.current_data = data  # asegúrate de sincronizar ViewPanel
             self.main_window.View_Part.switch_view("magnetic")
             self.visualize_magnetic(data)

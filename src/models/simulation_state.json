@@ -1,24 +1,49 @@
 {
     "H": 0.02,
     "R_big": 0.05,
-    "R_small": 0.027,
-    "refinement_level": "test",
-    "voltage": 300,
-    "voltage_cathode": 16,
+    "R_small": 0.028,
+    "refinement_level": "low",
+    "voltage": 300.0,
+    "voltage_cathode": 18.0,
     "nSteps": 5000,
     "N_turns": 200,
     "I": 4.5,
     "r0": 0.0385,
-    "N_particles": 1000,
+    "N_particles": 100000,
     "frames": 500,
-    "prev_params_mesh": [null, null, null, null, null],
-    "prev_params_field": [300, 16],
-    "prev_params_magnetic": [null, null, null],
-    "prev_params_simulation": [null, null],
+    "prev_params_mesh": [
+        0.02,
+        0.05,
+        0.028,
+        "low",
+        null,
+        null
+    ],
+    "prev_params_field": [
+        300.0,
+        18.0
+    ],
+    "prev_params_magnetic": [
+        5000,
+        200,
+        4.5
+    ],
+    "prev_params_simulation": [
+        100000,
+        500,
+        null,
+        null,
+        null,
+        "Xenon"
+    ],
     "min_physics_scale": null,
     "max_elements": null,
     "chunk_size": null,
     "alpha": null,
     "sigma_ion": null,
-    "dt": null
+    "dt": null,
+    "GPU_ACTIVE": false,
+    "gas": "Xenon",
+    "field_outdated": false,
+    "magnetic_outdated": false
 }

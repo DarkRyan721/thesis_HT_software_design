@@ -1,6 +1,10 @@
 Traceback (most recent call last):
-  File "/home/miguel/Documents/project/src/workers/mesh_generator_process.py", line 29, in <module>
-    mesh.generate()
-  File "/home/miguel/Documents/project/src/mesh_generator.py", line 452, in generate
-    cathode_surfaces_new.remove(29)
-ValueError: list.remove(x): x not in list
+  File "/home/miguel/Documents/project/src/workers/particle_in_cell_process.py", line 82, in <module>
+    pic.render()
+  File "/home/miguel/Documents/project/src/particle_in_cell_cpu.py", line 139, in render
+    self.move_particles()
+  File "/home/miguel/Documents/project/src/particle_in_cell_cpu.py", line 67, in move_particles
+    E, B = self.interpolate_to_S(s_ion)
+  File "/home/miguel/Documents/project/src/particle_in_cell_cpu.py", line 38, in interpolate_to_S
+    return self.E_values[idx], self.B_values[idx]
+IndexError: index 12868 is out of bounds for axis 0 with size 2804

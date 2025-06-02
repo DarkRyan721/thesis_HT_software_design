@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QWidget, QLabel, QLineEdit, QPushButton,
     QHBoxLayout, QVBoxLayout, QFormLayout, QGroupBox
 )
+from PySide6.QtWidgets import QMessageBox
 from PySide6.QtCore import QThread, Signal, QObject, QTimer
 # ──────────────────────────────────────────────
 # 🌀 Visualización y mallas
@@ -114,10 +115,14 @@ class MainWindow(QtW.QMainWindow):
             self.View_Part.switch_view("mesh")
         elif index == 1:
             self.View_Part.switch_view("field")
+            self.alert_if_field_or_magnetic_outdated()
         elif index == 2:
             self.View_Part.switch_view("magnetic")
+            self.alert_if_field_or_magnetic_outdated()
         elif index == 3:
             self.View_Part.switch_view("simulation")
+            self.alert_if_field_or_magnetic_outdated()
+
 
     def set_active_button(self, active_btn):
         for btn in self.Options.tab_buttons:
@@ -146,6 +151,42 @@ class MainWindow(QtW.QMainWindow):
 
         # ──────────────────────────────
         thread.start()
+
+    def alert_if_field_or_magnetic_outdated(self):
+        state = self.simulation_state
+        msg = ""
+        if state.field_outdated and state.magnetic_outdated:
+            msg = "⚠️ Debe actualizar el campo eléctrico y el campo magnético tras cambiar el dominio de simulación para obtener resultados correctos."
+        elif state.field_outdated:
+            msg = "⚠️ Debe actualizar el campo eléctrico tras cambiar el dominio de simulación."
+        elif state.magnetic_outdated:
+            msg = "⚠️ Debe actualizar el campo magnético tras cambiar el dominio de simulación."
+        if msg:
+            box = QMessageBox(self)
+            box.setWindowTitle("Actualizar campos")
+            box.setText(msg)
+            box.setIcon(QMessageBox.Warning)
+            box.setStyleSheet("""
+                QMessageBox {
+                    background-color: #121212; /* fondo negro */
+                    color: #f5f5f5;           /* texto blanco */
+                }
+                QLabel {
+                    color: #f5f5f5;
+                }
+                QPushButton {
+                    background-color: #23272b;
+                    color: #f5f5f5;
+                    border: 1px solid #444;
+                    border-radius: 6px;
+                    padding: 6px 18px;
+                }
+                QPushButton:hover {
+                    background-color: #32373a;
+                }
+            """)
+            box.exec()
+
 
 
 

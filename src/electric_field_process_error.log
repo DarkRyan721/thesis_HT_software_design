@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/home/miguel/Documents/project/src/workers/electric_field_process.py", line 18, in <module>
+    raise ValueError("Uso: run_solver.py <simulation_state.json> [opciones opcionales]")
+ValueError: Uso: run_solver.py <simulation_state.json> [opciones opcionales]

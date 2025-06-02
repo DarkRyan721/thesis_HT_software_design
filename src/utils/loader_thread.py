@@ -42,7 +42,6 @@ class LoaderWorker(QObject):
         elif self.mode == "field":
             self.progress.emit(0)
             validate_density = self.params.get("validate_density")
-            print(validate_density)
             laplace_path = data_file("E_Field_Laplace.npy")
             poisson_path = data_file("E_Field_Poisson.npy")
             field_path = poisson_path if validate_density else laplace_path
@@ -65,20 +64,9 @@ class LoaderWorker(QObject):
             log_magnitudes = np.log10(magnitudes + 1e-3)
             log_magnitudes[log_magnitudes < 0] = 0
 
-            # # 🔻 Reducción de puntos si hay demasiados
-            # max_points = 20000
-            # if len(points) > max_points:
-            #     print(f"🔻 Reducción de {len(points)} a {max_points} puntos para visualización.")
-            #     idx = np.random.choice(len(points), size=max_points, replace=False)
-            #     points = points[idx]
-            #     vectors = vectors[idx]
-            #     log_magnitudes = log_magnitudes[idx]
-
-            # Convertir a PolyData y generar glyphs
-
             mesh = pv.PolyData(points)
             mesh["E_field"] = vectors
-            mesh["magnitude"] = log_magnitudes
+            mesh["magnitude"] = magnitudes
             self.progress.emit(100)
             self.finished.emit(mesh)
 

@@ -229,11 +229,11 @@ class SimulationOptionsPanel(QWidget):
         if new_params != self.simulation_state.prev_params_simulation:
             print("🔄 Parámetros de simulación cambiaron:", new_params)
             self.simulation_state.prev_params_simulation = new_params
-            self.run_solver_in_subprocess(N_particles, frames, alpha, sigma_ion, dt, gas)
+            self.simulation_state.save_to_json(model("simulation_state.json"))
+            self.run_solver_in_subprocess()
         else:
             print("⚠️ No se han realizado cambios en los parámetros.")
 
-        self.simulation_state.save_to_json(model("simulation_state.json"))
 
 
     def validar_numeros(self, campos, opcionales=None):
@@ -257,19 +257,12 @@ class SimulationOptionsPanel(QWidget):
             resultados[nombre] = valor
         return resultados
 
-    def run_solver_in_subprocess(self, N_particles, frames, alpha, sigma_ion, dt, gas):
+    def run_solver_in_subprocess(self):
         import subprocess
         from PySide6.QtCore import QTimer
 
         args = [
-            'python3', worker("particle_in_cell_process.py"),
-            str(N_particles),
-            str(frames),
-            "" if alpha is None else str(alpha),
-            "" if sigma_ion is None else str(sigma_ion),
-            "" if dt is None else str(dt),
-            str(self.enable_checkbox.isChecked()),
-            gas  # Nuevo argumento: el tipo de gas seleccionado
+            'python3', worker("particle_in_cell_process.py")
         ]
         print("🔄 Ejecutando solver en subprocess...")
         self.solver_start_time = time.perf_counter()
@@ -302,7 +295,7 @@ class SimulationOptionsPanel(QWidget):
 
                 self.label_impulso.setText(f"Impulso específico: <b>{impulso} s</b>")
                 self.label_tiempo.setText(f"Tiempo de simulación: <b>{elapsed} min</b>")
-                self.label_frames.setText(f"Número de frames: <b>{frames}</b>")
+                self.label_frames.setText(f"Número de frames: <b>{self.simulation_state.frames}</b>")
         self.timer = QTimer()
         self.timer.timeout.connect(check_output)
         self.timer.start(300)

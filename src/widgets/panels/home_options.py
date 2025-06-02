@@ -283,17 +283,18 @@ class HomeOptionsPanel(QWidget):
         H = valores['H']                  # Siempre float
         R_big = valores['R_big']          # Siempre float
         R_small = valores['R_small']      # Siempre float
+        refinement_level = self.mesh_quality_box.currentText().lower()
         min_physical_scale = valores['min_physical_scale']  # Puede ser float o None
         max_elements = valores['max_elements']              # Puede ser float o None
 
         self.simulation_state.H = H
         self.simulation_state.R_big = R_big
         self.simulation_state.R_small = R_small
-        self.refinement_level = self.mesh_quality_box.currentText().lower()
+        self.simulation_state.refinement_level = refinement_level
 
-        print(f"H = {H}, R_big = {R_big}, R_small = {R_small}")
+        print(f"H = {H}, R_big = {R_big}, R_small = {R_small}, Refinement = {self.mesh_quality_box.currentText().lower()}")
         new_params = (
-            H, R_big, R_small, self.mesh_quality_box.currentText().lower(),
+            H, R_big, R_small, refinement_level,
             min_physical_scale, max_elements
         )
 
@@ -307,16 +308,23 @@ class HomeOptionsPanel(QWidget):
                 "H": H,
                 "R_Big": R_big,
                 "R_Small": R_small,
-                "refinement_level": self.refinement_level,
+                "refinement_level": refinement_level,
                 "min_physical_scale": min_physical_scale,
                 "max_elements": max_elements
             }
-            self.run_mesher_in_subprocess(self.on_mesh_loaded, params)
+            print(params)
+
+            self.simulation_state.field_outdated = True
+            self.simulation_state.magnetic_outdated = True
+            self.simulation_state.save_to_json(model("simulation_state.json"))
+            self.run_process_and_reload(
+                process_script="mesh_generator_process.py",
+                loader_mode="mesh",
+                finished_callback=self.on_mesh_loaded
+            )
+
         else:
             print("⚠️ No se han realizado cambios en la malla.")
-
-        self.simulation_state.print_state()
-        self.simulation_state.save_to_json(model("simulation_state.json"))
 
     def validar_numeros(self, campos, opcionales=None):
         """
@@ -365,33 +373,43 @@ class HomeOptionsPanel(QWidget):
             worker = LoaderWorker(mode="mesh")
             self.main_window.launch_worker(worker, self.on_mesh_loaded)
 
-    def run_mesher_in_subprocess(self, finished_callback, params):
+    # def run_mesher_in_subprocess(self, finished_callback):
+    #     run_mesher_path = worker("mesh_generator_process.py")
 
-        run_mesher_path = worker("mesh_generator_process.py")
-        H = params["H"]
-        R_big = params["R_Big"]
-        R_small = params["R_Small"]
-        refinement_level = params["refinement_level"]
-        min_physical_scale = params["min_physical_scale"]
-        max_elements = params["max_elements"]
+    #     # Ahora solo pasas el nombre del script, sin argumentos personalizados
+    #     args = ['python3', run_mesher_path]
 
-        # Guarda los parámetros de mallado en JSON
+    #     self.process = subprocess.Popen(args)
+    #     self.mesher_start_time = time.perf_counter()
+    #     self.mesher_finished = False
 
-        args = [
-            'python3', run_mesher_path,
-            str(H),
-            str(R_big),
-            str(R_small),
-            refinement_level,
-            "" if min_physical_scale is None else str(min_physical_scale),
-            "" if max_elements is None else str(max_elements),
-        ]
+    #     # Usa un QTimer para verificar cuándo termina el subproceso
 
+    #     def check_output():
+    #         if self.process is None:
+    #             self.timer.stop()
+    #             return
+    #         if self.process.poll() is not None:
+    #             self.timer.stop()
+    #             self.mesher_finished = True
+    #             elapsed = time.perf_counter() - self.mesher_start_time
+    #             print(f"[DEBUG] Mallado terminado en {elapsed:.2f} s")
+    #             self.process = None
+    #             # Llama al callback
+    #             print("[INFO] Recargando malla con LoaderWorker luego de mallado.")
+    #             loader = LoaderWorker(mode="mesh")
+    #             self.main_window.launch_worker(loader, self.on_mesh_loaded)
+    #             # (Opcional) llamar al callback adicional si quieres
+
+    #     self.timer = QTimer()
+    #     self.timer.timeout.connect(lambda: check_output())
+    #     self.timer.start(300)  # cada 300 ms
+
+    def run_process_and_reload(self, process_script, loader_mode, finished_callback):
+        args = ['python3', worker(process_script)]
         self.process = subprocess.Popen(args)
-        self.mesher_start_time = time.perf_counter()
-        self.mesher_finished = False
-
-        # Usa un QTimer para verificar cuándo termina el subproceso
+        self.process_start_time = time.perf_counter()
+        self.process_finished = False
 
         def check_output():
             if self.process is None:
@@ -399,19 +417,17 @@ class HomeOptionsPanel(QWidget):
                 return
             if self.process.poll() is not None:
                 self.timer.stop()
-                self.mesher_finished = True
-                elapsed = time.perf_counter() - self.mesher_start_time
-                print(f"[DEBUG] Mallado terminado en {elapsed:.2f} s")
+                self.process_finished = True
+                elapsed = time.perf_counter() - self.process_start_time
+                print(f"[DEBUG] Proceso terminado en {elapsed:.2f} s")
                 self.process = None
-                # Llama al callback
-                print("[INFO] Recargando malla con LoaderWorker luego de mallado.")
-                loader = LoaderWorker(mode="mesh")
-                self.main_window.launch_worker(loader, self.on_mesh_loaded)
-                # (Opcional) llamar al callback adicional si quieres
+                loader = LoaderWorker(mode=loader_mode)
+                self.main_window.launch_worker(loader, finished_callback)
 
         self.timer = QTimer()
-        self.timer.timeout.connect(lambda: check_output())
-        self.timer.start(300)  # cada 300 ms
+        self.timer.timeout.connect(check_output)
+        self.timer.start(300)
+
 
     def change_view(self, view):
         if view == "Isometric":
@@ -451,6 +467,6 @@ class HomeOptionsPanel(QWidget):
         if not isinstance(mesh_to_show, pv.PolyData):
             print(f"❌ Error: mesh_to_show no es PolyData, es {type(mesh_to_show)}")
             return
-        
+
         self._apply_visual_style_home(mesh_to_show)
 
